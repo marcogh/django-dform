@@ -1,0 +1,4 @@
+include LICENSE
+include README.rst
+recursive-include dform/static *
+recursive-include dform/templates *
