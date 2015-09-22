@@ -29,6 +29,7 @@ SETUP_ARGS = dict(
     keywords='django,form,survey',
     install_requires=[
         'Django>=1.8',
+        'django-awl>=0.2.0',
     ],
 )
 

@@ -24,7 +24,7 @@ class SurveyTests(TestCase):
         # add some questions
         mt = survey.add_question(MultiText, 'multi')
         tx = survey.add_question(Text, 'text value and stuff and things', 
-            order=1)
+            rank=1)
         dr = survey.add_question(Dropdown, 'drop', 
             field_parms={'a':'Apple', 'b':'Bear'})
         rd = survey.add_question(Radio, 'radio', 

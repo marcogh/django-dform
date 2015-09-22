@@ -6,9 +6,9 @@ from django.db.models.signals import post_save
 from django.dispatch import receiver
 
 from jsonfield import JSONField
+from awl.rankedmodel.models import RankedModel
 
 from .fields import FIELD_CHOICES, FIELDS_DICT
-from .ordered_model.models import OrderedModel
 
 logger = logging.getLogger(__name__)
 
@@ -33,7 +33,7 @@ class EditNotAllowedException(Exception):
 class Survey(TimeTrackedModel):
     name = models.CharField(max_length=50)
 
-    def add_question(self, field, text, order=0, required=False, 
+    def add_question(self, field, text, rank=0, required=False, 
             field_parms={}, version=None):
         """Creates a new :class:`Question` for the ``Survey``.
 
@@ -42,7 +42,7 @@ class Survey(TimeTrackedModel):
             created
         :param text:
             text to display when asking the question
-        :param order:
+        :param rank:
             the order number of this question, defaults to 0 which means
             insert last
         :param required:
@@ -73,8 +73,8 @@ class Survey(TimeTrackedModel):
             'survey_version':version,
             'question':question,
         }
-        if order != 0:
-            kwargs['order'] = order
+        if rank != 0:
+            kwargs['rank'] = rank
 
         QuestionOrder.objects.create(**kwargs)
         return question
@@ -117,7 +117,7 @@ class Survey(TimeTrackedModel):
             version = self.latest_version
 
         orders = QuestionOrder.objects.filter(survey_version=version
-            ).order_by('order')
+            ).order_by('rank')
         return [order.question for order in orders]
 
     def answer_question(self, question, answer_group, value, version=None):
@@ -168,10 +168,10 @@ class Survey(TimeTrackedModel):
             version_num=self.latest_version.version_num + 1)
 
         orders = QuestionOrder.objects.filter(
-            survey_version=old_version).order_by('order')
+            survey_version=old_version).order_by('rank')
         for order in orders:
             QuestionOrder.objects.create(survey_version=new_version,
-                question=order.question, order=order.order)
+                question=order.question, rank=order.rank)
             order.question.survey_versions.add(new_version)
 
         return new_version
@@ -224,13 +224,13 @@ class Question(TimeTrackedModel):
         return text
 
 
-class QuestionOrder(TimeTrackedModel, OrderedModel):
+class QuestionOrder(TimeTrackedModel, RankedModel):
     survey_version = models.ForeignKey(SurveyVersion)
     question = models.ForeignKey(Question)
 
-    def ordered_filter(self):
+    def grouped_filter(self):
         return QuestionOrder.objects.filter(
-            survey_version=self.survey_version).order_by('order')
+            survey_version=self.survey_version).order_by('rank')
 
 
 class Answer(TimeTrackedModel):
