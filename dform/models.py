@@ -167,6 +167,128 @@ class Survey(TimeTrackModel):
 
         return new_version
 
+    def to_dict(self, version=None):
+        """Returns a dictionary representation of the given version.
+
+        :param version:
+            The version of the ``Survey` to turn into a dictionary, defaults
+            to the latest version.
+
+        Format:
+
+        .. code-block::python
+
+            {
+                'name':survey_name,
+                'questions':[
+                    {
+                        'id':question_id,
+                        'field_key':question_field_key,
+                        'text':question_text,
+                        'required':is_question_required,
+                        'field_params:OrderedDict(*field_parm_tuples),
+                    }
+                ]
+            }
+
+        .. note::
+
+            The order of the question dictionaries will be the order of the
+            questions in the survey.
+
+        .. note::
+
+            Be careful to use a ``OrderedDict`` with the field parameters, as
+            the order of parameters is used for the order of display in
+            multiple choice style questions.
+        """
+        if not version:
+            version = self.latest_version
+
+        questions = []
+        for question in version.survey.questions(version):
+            questions.append({
+                'id':question.id,
+                'field_key':question.field_key,
+                'text':question.text,
+                'required':question.required,
+                'field_parms':question.field_parms,
+            })
+
+        data = {
+            'name':version.survey.name,
+            'questions':questions,
+        }
+
+        return data
+
+    def replace_from_dict(self, data, version=None):
+        """Takes the given dictionary and modifies the survey version and its
+        associated questions.  Uses the same format as :func:`Survey.to_dict`
+        with one additional (optional) key "remove" which contains a list of
+        :class:`Question` ids to be removed from the ``Survey``.
+
+        :param data:
+            Dictionary to overwrite the contents of the ``Survey` and
+            associated :class:`Question` objects with.
+        :param version:
+            The version of the ``Survey` to replace with the "data"
+            dictionary, defaults to the latest version.
+        :raises EditNotAllowedException:
+            If the version being replaced is active
+        :raises Question.DoesNotExist:
+            If a question id is referenced that does not exist or is not
+            associated with this survey.
+        """
+        if not version:
+            version = self.latest_version
+
+        version.validate_editable()
+
+        if 'name' in data:
+            self.name = data['name']
+            self.save()
+
+        if 'questions' in data:
+            for q_data in data['questions']:
+                if q_data['id'] == 0:
+                    # new question
+                    kwargs = {
+                        'field':FIELDS_DICT[q_data['field_key']],
+                        'text':q_data['text'],
+                        'required':q_data['required'],
+                        'field_parms':q_data['field_parms'],
+                        'version':version,
+                    }
+
+                    # add the question and set the data's question id so that we
+                    # can do re-ordering down below
+                    question = self.add_question(**kwargs)
+                    q_data['id'] = question.id
+                else:
+                    question = Question.objects.get(id=q_data['id'], 
+                        survey__id=self.id)
+
+                    question.text = q_data['text']
+                    question.required = q_data['required']
+                    question.field_parms = q_data['field_parms']
+                    question.save()
+
+        # fix the ranking -- creating new questions will mess with the order
+        if 'questions' in data:
+            for index, q_data in enumerate(data['questions']):
+                question = Question.objects.get(id=q_data['id'], 
+                    survey__id=self.id)
+                q_order = QuestionOrder.objects.get(question=question,
+                    survey_version=version)
+                q_order.rank = index + 1
+                q_order.save(rerank=False)
+
+        if 'remove' in data:
+            for id in data['remove']:
+                question = Question.objects.get(id=id, survey__id=self.id)
+                self.remove_question(question, version)
+
 
 @receiver(post_save, sender=Survey)
 def survey_post_save(sender, **kwargs):
