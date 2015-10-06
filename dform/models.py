@@ -1,26 +1,17 @@
 # dform.models.py
-import logging
+import logging, collections
 
 from django.db import models, transaction
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 
 from jsonfield import JSONField
+from awl.models import TimeTrackModel
 from awl.rankedmodel.models import RankedModel
 
 from .fields import FIELD_CHOICES, FIELDS_DICT
 
 logger = logging.getLogger(__name__)
-
-# ============================================================================
-
-class TimeTrackedModel(models.Model):
-    """Abstract model for create & update fields.  """
-    created = models.DateTimeField(auto_now_add=True)
-    updated = models.DateTimeField(auto_now=True)
-
-    class Meta:
-        abstract = True
 
 # ============================================================================
 # Survey Management
@@ -30,7 +21,7 @@ class EditNotAllowedException(Exception):
     pass
 
 
-class Survey(TimeTrackedModel):
+class Survey(TimeTrackModel):
     name = models.CharField(max_length=50)
 
     def add_question(self, field, text, rank=0, required=False, 
@@ -184,7 +175,7 @@ def survey_post_save(sender, **kwargs):
         SurveyVersion.objects.create(survey=kwargs['instance'])
 
 
-class SurveyVersion(TimeTrackedModel):
+class SurveyVersion(TimeTrackModel):
     survey = models.ForeignKey(Survey)
     version_num = models.PositiveSmallIntegerField(default=1)
 
@@ -196,13 +187,14 @@ class SurveyVersion(TimeTrackedModel):
 # Question & Answers
 # ============================================================================
 
-class Question(TimeTrackedModel):
+class Question(TimeTrackModel):
     survey = models.ForeignKey(Survey)
     survey_versions = models.ManyToManyField(SurveyVersion)
 
     text = models.TextField(blank=True)
     field_key = models.CharField(max_length=2, choices=FIELD_CHOICES)
-    field_parms = JSONField(default={})
+    field_parms = JSONField(default={}, 
+        load_kwargs={'object_pairs_hook':collections.OrderedDict})
     required = models.BooleanField(default=False)
 
     def __str__(self):
@@ -224,7 +216,7 @@ class Question(TimeTrackedModel):
         return text
 
 
-class QuestionOrder(TimeTrackedModel, RankedModel):
+class QuestionOrder(TimeTrackModel, RankedModel):
     survey_version = models.ForeignKey(SurveyVersion)
     question = models.ForeignKey(Question)
 
@@ -233,7 +225,7 @@ class QuestionOrder(TimeTrackedModel, RankedModel):
             survey_version=self.survey_version).order_by('rank')
 
 
-class Answer(TimeTrackedModel):
+class Answer(TimeTrackModel):
     question = models.ForeignKey(Question)
     survey_version = models.ForeignKey(SurveyVersion)
 

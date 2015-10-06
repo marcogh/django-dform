@@ -18,6 +18,7 @@ settings.configure(DEBUG=True,
         'django.contrib.contenttypes',
         'django.contrib.sessions',
         'django.contrib.admin',
+        'awl',
         'dform',
     ),
 )
