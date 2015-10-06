@@ -301,9 +301,15 @@ class SurveyVersion(TimeTrackModel):
     survey = models.ForeignKey(Survey)
     version_num = models.PositiveSmallIntegerField(default=1)
 
+    class Meta:
+        verbose_name = 'Survey Version'
+
     def validate_editable(self):
         if Answer.objects.filter(survey_version=self).count() != 0:
             raise EditNotAllowedException()
+
+    def is_editable(self):
+        return Answer.objects.filter(survey_version=self).count() == 0
 
 # ============================================================================
 # Question & Answers

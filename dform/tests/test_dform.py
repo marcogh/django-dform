@@ -5,9 +5,10 @@ from django.test import TestCase
 
 from awl.waelsteng import AdminToolsMixin
 
-from .admin import SurveyAdmin
-from .models import Survey, EditNotAllowedException, Question
-from .fields import Text, MultiText, Dropdown, Radio, Checkboxes, Rating
+from dform.admin import SurveyAdmin, SurveyVersionAdmin
+from dform.models import (Survey, SurveyVersion, EditNotAllowedException, 
+    Question)
+from dform.fields import Text, MultiText, Dropdown, Radio, Checkboxes, Rating
 
 # ============================================================================
 
@@ -77,10 +78,16 @@ class SurveyTests(TestCase):
         for index, question in enumerate(survey.questions()):
             self.assertEqual(question, expected_q2[index])
 
+        # -- check version is_editable
+        self.assertTrue(first_version.is_editable())
+
         # -- test answers
         answer = 'answer and stuff and things'
         a1 = survey.answer_question(tx, 1, answer, first_version)
         self.assertEqual(a1.value, answer)
+
+        # re-check version is_editable now that it shouldn't be
+        self.assertFalse(first_version.is_editable())
 
         # survey has answers now, shouldn't be able to edit
         with self.assertRaises(EditNotAllowedException):
@@ -203,10 +210,35 @@ class AdminTestCase(TestCase, AdminToolsMixin):
     def test_admin(self):
         self.initiate()
 
-        survey, mt, tx, dr, rd, cb, rt = sample_survey()
         survey_admin = SurveyAdmin(Survey, self.site)
+        version_admin = SurveyVersionAdmin(SurveyVersion, self.site)
+        survey, _, tx, _, _, _, _ = sample_survey()
+        first_version = survey.latest_version
+
+        # check version number
         result = self.field_value(survey_admin, survey, 'version_num')
         self.assertEqual('1', result)
+
+        # verify Survey "edit" link
+        response = self.visit_admin_link(survey_admin, survey, 'show_actions')
+        self.assertTemplateUsed(response, 'edit_survey.html')
+
+        # verify SurveyVersion "edit" link
+        response = self.visit_admin_link(version_admin, first_version, 
+            'show_actions')
+        self.assertTemplateUsed(response, 'edit_survey.html')
+
+        # add answer and verify "new version" link
+        answer = 'answer and stuff and things'
+        survey.answer_question(tx, 1, answer)
+
+        self.visit_admin_link(survey_admin, survey, 'show_actions',
+            response_code=302)
+        self.assertEqual(2, survey.latest_version.version_num)
+        self.assertNotEqual(first_version, survey.latest_version)
+
+        result = self.field_value(version_admin, first_version, 'show_actions')
+        self.assertEqual(None, result)
 
 # ============================================================================
 # Test Views
@@ -229,7 +261,7 @@ class SurveyViewTests(TestCase, AdminToolsMixin):
             }],
         }
 
-        response = self.client.post('/survey_delta/0/',
+        response = self.client.post('/dform/survey_delta/0/',
             data={'delta':json.dumps(expected)})
         self.assertEqual(200, response.status_code)
 
@@ -250,7 +282,7 @@ class SurveyViewTests(TestCase, AdminToolsMixin):
         }
 
         response = self.client.post(
-            '/survey_delta/%s/' % survey2.latest_version.id, 
+            '/dform/survey_delta/%s/' % survey2.latest_version.id, 
             data={'delta':json.dumps(delta)})
 
         self.assertEqual(404, response.status_code)
@@ -264,7 +296,7 @@ class SurveyViewTests(TestCase, AdminToolsMixin):
         }
 
         response = self.client.post(
-            '/survey_delta/%s/' % survey.latest_version.id, 
+            '/dform/survey_delta/%s/' % survey.latest_version.id, 
             data={'delta':json.dumps(delta)})
 
         self.assertEqual(404, response.status_code)
@@ -275,7 +307,7 @@ class SurveyViewTests(TestCase, AdminToolsMixin):
         }
 
         response = self.client.post(
-            '/survey_delta/%s/' % survey.latest_version.id, 
+            '/dform/survey_delta/%s/' % survey.latest_version.id, 
             data={'delta':json.dumps(delta)})
 
         self.assertEqual(404, response.status_code)
@@ -287,7 +319,7 @@ class SurveyViewTests(TestCase, AdminToolsMixin):
         }
 
         response = self.client.post(
-            '/survey_delta/%s/' % survey.latest_version.id, 
+            '/dform/survey_delta/%s/' % survey.latest_version.id, 
             data={'delta':json.dumps(delta)})
 
         self.assertEqual(404, response.status_code)
@@ -297,11 +329,11 @@ class SurveyViewTests(TestCase, AdminToolsMixin):
         # javascript editor
         self.initiate()
 
-        response = self.authed_get('/survey_editor/0/')
+        response = self.authed_get('/dform/survey_editor/0/')
         self.assertTemplateUsed(response, 'edit_survey.html')
 
         survey = Survey.objects.first()
 
-        response = self.authed_get('/survey_editor/%s/' %
+        response = self.authed_get('/dform/survey_editor/%s/' %
             survey.latest_version.id)
         self.assertTemplateUsed(response, 'edit_survey.html')

@@ -2,7 +2,8 @@ import json, logging
 from collections import OrderedDict
 
 from django.contrib.admin.views.decorators import staff_member_required
-from django.http import HttpResponse, Http404
+from django.core.urlresolvers import reverse
+from django.http import HttpResponse, HttpResponseRedirect, Http404
 from django.shortcuts import get_object_or_404
 
 from awl.decorators import post_required
@@ -55,3 +56,13 @@ def survey_editor(request, survey_version_id):
     }
 
     return render_page(request, 'edit_survey.html', data)
+
+
+@staff_member_required
+def new_version(request, survey_id):
+    survey = get_object_or_404(Survey, id=survey_id)
+    survey.new_version()
+
+    admin_link = reverse('admin:index')
+    return_url = request.META.get('HTTP_REFERER', admin_link)
+    return HttpResponseRedirect(return_url)
