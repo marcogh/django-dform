@@ -4,6 +4,7 @@ import logging, collections
 from django.db import models, transaction
 from django.db.models.signals import post_save
 from django.dispatch import receiver
+from django.utils.encoding import python_2_unicode_compatible
 
 from jsonfield import JSONField
 from awl.models import TimeTrackModel
@@ -21,8 +22,12 @@ class EditNotAllowedException(Exception):
     pass
 
 
+@python_2_unicode_compatible
 class Survey(TimeTrackModel):
     name = models.CharField(max_length=50)
+
+    def __str__(self):
+        return 'Survey(id=%s %s)' % (self.id, self.name)
 
     def add_question(self, field, text, rank=0, required=False, 
             field_parms={}, version=None):
@@ -297,9 +302,14 @@ def survey_post_save(sender, **kwargs):
         SurveyVersion.objects.create(survey=kwargs['instance'])
 
 
+@python_2_unicode_compatible
 class SurveyVersion(TimeTrackModel):
     survey = models.ForeignKey(Survey)
     version_num = models.PositiveSmallIntegerField(default=1)
+
+    def __str__(self):
+        return 'SurveyVersion(id=%s survey=%s, num=%s)' % (self.id, 
+            self.survey.name, self.version_num)
 
     class Meta:
         verbose_name = 'Survey Version'
@@ -315,6 +325,7 @@ class SurveyVersion(TimeTrackModel):
 # Question & Answers
 # ============================================================================
 
+@python_2_unicode_compatible
 class Question(TimeTrackModel):
     survey = models.ForeignKey(Survey)
     survey_versions = models.ManyToManyField(SurveyVersion)
@@ -344,15 +355,26 @@ class Question(TimeTrackModel):
         return text
 
 
+@python_2_unicode_compatible
 class QuestionOrder(TimeTrackModel, RankedModel):
     survey_version = models.ForeignKey(SurveyVersion)
     question = models.ForeignKey(Question)
+
+    class Meta:
+        verbose_name = 'Question Order'
+        verbose_name_plural = 'Question Order'
+        ordering = ['survey_version__id', 'rank']
+
+    def __str__(self):
+        return 'QuestionOrder(id=%s, rank=%s sv.id=%s q.id=%s)' % (self.id,
+            self.rank, self.survey_version.id, self.question.id)
 
     def grouped_filter(self):
         return QuestionOrder.objects.filter(
             survey_version=self.survey_version).order_by('rank')
 
 
+@python_2_unicode_compatible
 class Answer(TimeTrackModel):
     question = models.ForeignKey(Question)
     survey_version = models.ForeignKey(SurveyVersion)

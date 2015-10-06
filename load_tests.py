@@ -30,6 +30,7 @@ settings.configure(
         'django.contrib.sessions',
         'django.contrib.admin',
         'awl',
+        'awl.rankedmodel',
         'dform',
         'dform.tests',
     ),
@@ -39,6 +40,10 @@ settings.configure(
 )
 
 django.setup()
+
+#from django.core.management import call_command
+#call_command('shell')
+#quit()
 
 default_labels = ['dform.tests', ]
 

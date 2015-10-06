@@ -27,6 +27,7 @@ INSTALLED_APPS = (
     'django.contrib.staticfiles',
 
     'awl',
+    'awl.rankedmodel',
     'dform',
 
     'app',

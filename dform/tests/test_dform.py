@@ -4,10 +4,12 @@ from django.core.exceptions import ValidationError
 from django.test import TestCase
 
 from awl.waelsteng import AdminToolsMixin
+from wrench.utils import parse_link
 
-from dform.admin import SurveyAdmin, SurveyVersionAdmin
+from dform.admin import (SurveyAdmin, SurveyVersionAdmin, QuestionAdmin,
+    QuestionOrderAdmin, AnswerAdmin)
 from dform.models import (Survey, SurveyVersion, EditNotAllowedException, 
-    Question)
+    Question, QuestionOrder, Answer)
 from dform.fields import Text, MultiText, Dropdown, Radio, Checkboxes, Rating
 
 # ============================================================================
@@ -127,8 +129,12 @@ class SurveyTests(TestCase):
             survey.answer_question(rt, 1, 1, second_version)
 
         # -- misc coverage items
+        str(survey)
+        str(first_version)
         str(tx)
+        str(QuestionOrder.objects.first())
         str(a1)
+
 
     def test_survey_dicts(self):
         self.maxDiff = None
@@ -207,7 +213,7 @@ class SurveyTests(TestCase):
 
 
 class AdminTestCase(TestCase, AdminToolsMixin):
-    def test_admin(self):
+    def test_survey_admin(self):
         self.initiate()
 
         survey_admin = SurveyAdmin(Survey, self.site)
@@ -219,7 +225,7 @@ class AdminTestCase(TestCase, AdminToolsMixin):
         result = self.field_value(survey_admin, survey, 'version_num')
         self.assertEqual('1', result)
 
-        # verify Survey "edit" link
+        # -- show_actions
         response = self.visit_admin_link(survey_admin, survey, 'show_actions')
         self.assertTemplateUsed(response, 'edit_survey.html')
 
@@ -238,7 +244,144 @@ class AdminTestCase(TestCase, AdminToolsMixin):
         self.assertNotEqual(first_version, survey.latest_version)
 
         result = self.field_value(version_admin, first_version, 'show_actions')
-        self.assertEqual(None, result)
+        self.assertEqual('', result)
+
+        # -- show_versions
+        self.visit_admin_link(survey_admin, survey, 'show_versions')
+
+    def _assert_question_fields(self, html, q_url, q_text, r_url):
+        q_link, r_link = html.split('|')
+
+        url, text = parse_link(q_link)
+        self.assertIn(q_url, url)
+        self.assertIn(q_text, text)
+
+        url, text = parse_link(r_link)
+        self.assertIn(r_url, url)
+        self.assertIn('Reorder', text)
+
+    def _assert_link(self, html, url, text):
+        u, t = parse_link(html)
+        self.assertIn(url, u)
+        self.assertIn(text, t)
+
+    def test_survey_admin_links(self):
+        # different test cases from test_survey_admin that need non-standard
+        # surveys to be built while we're testing, so this is going in its own
+        # method
+        self.initiate()
+
+        survey_admin = SurveyAdmin(Survey, self.site)
+        version_admin = SurveyVersionAdmin(SurveyVersion, self.site)
+        survey = Survey.objects.create(name='survey')
+        first_version = survey.latest_version
+
+        # -- show_questions
+        html = self.field_value(survey_admin, survey, 'show_questions')
+        self.assertEqual('', html)
+
+        html = self.field_value(version_admin, first_version, 'show_questions')
+        self.assertEqual('', html)
+
+        # add question, try again
+        q_url = '/admin/dform/question/?survey_versions__id=%s' % (
+            survey.latest_version.id)
+        r_url = '/admin/dform/questionorder/?survey_version__id=%s' % (
+            survey.latest_version.id)
+
+        q = survey.add_question(Text, 'first question')
+
+        html = self.field_value(survey_admin, survey, 'show_questions')
+        self._assert_question_fields(html, q_url, '1 Question', r_url)
+        self.assertNotIn('Questions', html)
+
+        html = self.field_value(version_admin, first_version, 'show_questions')
+        self._assert_question_fields(html, q_url, '1 Question', r_url)
+        self.assertNotIn('Questions', html)
+
+        # add question, handling multiples
+        survey.add_question(Text, 'second question')
+
+        html = self.field_value(survey_admin, survey, 'show_questions')
+        self._assert_question_fields(html, q_url, '2 Questions', r_url)
+
+        html = self.field_value(version_admin, first_version, 'show_questions')
+        self._assert_question_fields(html, q_url, '2 Questions', r_url)
+
+        # -- show answers
+        url = '/admin/dform/answer/?survey_version__id=%s' % (
+            survey.latest_version.id)
+
+        # add answer
+        survey.answer_question(q, 1, '1st Answer', first_version)
+
+        html = self.field_value(survey_admin, survey, 'show_answers')
+        self._assert_link(html, url, '1 Answer')
+        self.assertNotIn('Answers', html)
+
+        html = self.field_value(version_admin, first_version, 'show_answers')
+        self._assert_link(html, url, '1 Answer')
+        self.assertNotIn('Answers', html)
+
+        # add another answer, handling multiples
+        survey.answer_question(q, 2, '2nd Answer', first_version)
+
+        html = self.field_value(survey_admin, survey, 'show_answers')
+        self._assert_link(html, url, '2 Answers')
+
+        html = self.field_value(version_admin, first_version, 'show_answers')
+        self._assert_link(html, url, '2 Answers')
+
+    def test_question_admin(self):
+        self.initiate()
+
+        question_admin = QuestionAdmin(Question, self.site)
+        survey = Survey.objects.create(name='survey')
+        version = survey.latest_version
+
+        q1 = survey.add_question(Text, '1st question')
+        q2 = survey.add_question(Text, '2nd question')
+
+        # -- show_reorder
+        url = '/admin/dform/questionorder/?survey_version__id=%s' % version.id
+        html = self.field_value(question_admin, q1, 'show_reorder')
+        self._assert_link(html, url, 'Reorder')
+
+        # -- show_answers
+        url = '/admin/dform/answer/?question__id=%s' % q1.id
+
+        html = self.field_value(question_admin, q1, 'show_answers')
+        self.assertEqual('', html)
+
+        # add an answer
+        a1 = survey.answer_question(q1, 1, '1st Answer', version)
+        html = self.field_value(question_admin, q1, 'show_answers')
+        self._assert_link(html, url, '1 Answer')
+        self.assertNotIn('Answers', html)
+
+        # another answer
+        survey.answer_question(q1, 2, '2nd Answer', version)
+        html = self.field_value(question_admin, q1, 'show_answers')
+        self._assert_link(html, url, '2 Answers')
+
+        # -- question order
+        qo_admin = QuestionOrderAdmin(QuestionOrder, self.site)
+        qo2 = QuestionOrder.objects.last()
+        text = self.field_value(qo_admin, qo2, 'show_text')
+        self.assertEqual('2nd question', text)
+
+        # move_up & move_down tested in awl.rankedmodel, just trip them for
+        # coverage
+        self.field_value(qo_admin, qo2, 'move_up')
+        self.field_value(qo_admin, qo2, 'move_down')
+
+        # -- answer admin
+        answer_admin = AnswerAdmin(Answer, self.site)
+        text = self.field_value(answer_admin, a1, 'show_text')
+        self.assertEqual('1st question', text)
+
+        text = self.field_value(answer_admin, a1, 'show_field_key')
+        self.assertEqual('Text', text)
 
 # ============================================================================
 # Test Views
