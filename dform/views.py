@@ -1,5 +1,7 @@
 import json, logging
 from collections import OrderedDict
+
+from django.contrib.admin.views.decorators import staff_member_required
 from django.http import HttpResponse, Http404
 from django.shortcuts import get_object_or_404
 
@@ -36,3 +38,20 @@ def survey_delta(request, survey_version_id):
 
     # issue a 200 response
     return HttpResponse()
+
+
+@staff_member_required
+def survey_editor(request, survey_version_id):
+    if survey_version_id == '0':
+        # new survey
+        survey = Survey.objects.create(name='New Survey')
+        version = survey.latest_version
+    else:
+        version = get_object_or_404(SurveyVersion, id=survey_version_id)
+        survey = version.survey
+
+    data = {
+        'survey':survey.to_dict(version)
+    }
+
+    return render_page(request, 'edit_survey.html', data)

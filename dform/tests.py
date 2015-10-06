@@ -32,7 +32,7 @@ def sample_survey():
     return survey, mt, tx, dr, rd, cb, rt
 
 # ============================================================================
-# Test Class
+# Test Objects
 # ============================================================================
 
 class SurveyTests(TestCase):
@@ -198,6 +198,21 @@ class SurveyTests(TestCase):
         with self.assertRaises(EditNotAllowedException):
             survey.replace_from_dict(delta)
 
+
+class AdminTestCase(TestCase, AdminToolsMixin):
+    def test_admin(self):
+        self.initiate()
+
+        survey, mt, tx, dr, rd, cb, rt = sample_survey()
+        survey_admin = SurveyAdmin(Survey, self.site)
+        result = self.field_value(survey_admin, survey, 'version_num')
+        self.assertEqual('1', result)
+
+# ============================================================================
+# Test Views
+# ============================================================================
+
+class SurveyViewTests(TestCase, AdminToolsMixin):
     def test_survey_delta_view(self):
         self.maxDiff = None
         survey, mt, tx, dr, rd, cb, rt = sample_survey()
@@ -277,12 +292,16 @@ class SurveyTests(TestCase):
 
         self.assertEqual(404, response.status_code)
 
-
-class AdminTestCase(TestCase, AdminToolsMixin):
-    def test_admin(self):
+    def test_survey_edit(self):
+        # Only does rudimentary execution tests, doesn't test the actual 
+        # javascript editor
         self.initiate()
 
-        survey, mt, tx, dr, rd, cb, rt = sample_survey()
-        survey_admin = SurveyAdmin(Survey, self.site)
-        result = self.field_value(survey_admin, survey, 'version_num')
-        self.assertEqual('1', result)
+        response = self.authed_get('/survey_editor/0/')
+        self.assertTemplateUsed(response, 'edit_survey.html')
+
+        survey = Survey.objects.first()
+
+        response = self.authed_get('/survey_editor/%s/' %
+            survey.latest_version.id)
+        self.assertTemplateUsed(response, 'edit_survey.html')
