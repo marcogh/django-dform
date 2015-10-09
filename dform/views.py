@@ -51,11 +51,16 @@ def survey_editor(request, survey_version_id):
         version = get_object_or_404(SurveyVersion, id=survey_version_id)
         survey = version.survey
 
+    admin_link = reverse('admin:index')
+    return_url = request.META.get('HTTP_REFERER', admin_link)
+    save_url = reverse('dform-survey-delta', args=(version.id, ))
     data = {
-        'survey':survey.to_dict(version)
+        'survey':json.dumps(survey.to_dict(version)),
+        'save_url':save_url,
+        'return_url':return_url,
     }
 
-    return render_page(request, 'edit_survey.html', data)
+    return render_page(request, 'dform/edit_survey.html', data)
 
 
 @staff_member_required

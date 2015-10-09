@@ -1,0 +1,51 @@
+body {
+    padding-top:80px;
+}
+
+a:focus {
+    outline: none;
+}
+
+.no-left-gutter {
+    padding-left:0px;
+}
+
+.no-right-gutter {
+    padding-right:0px;
+}
+
+.form-inline .form-group {
+    margin-left:0;
+    margin-right:0;
+}
+
+.navbar-right {
+    margin-right:10px !important;
+}
+
+input.kv-key {
+    width: 60% !important;
+}
+input.kv-value {
+    width: 80% !important;
+}
+
+.choices-well {
+    margin-bottom:2px;
+}
+
+.key-remove {
+    width:auto;
+}
+
+.move-kv-down {
+    margin-right:15px;
+}
+
+.kv-actions {
+    padding-top:5px;
+}
+
+.add-choice-row {
+    margin-top:15px;
+}

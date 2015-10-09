@@ -1,4 +1,5 @@
 # create_test_data.py
+from collections import OrderedDict
 from django.core.management.base import BaseCommand
 
 from dform.models import Survey
@@ -30,12 +31,16 @@ colours = [ 'Pink', 'LightPink', 'HotPink', 'DeepPink', 'PaleVioletRed',
 class Command(BaseCommand):
     def handle(self, *args, **options):
         survey = Survey.objects.create(name='Sample Survey')
-        survey.add_question(MultiText, 'Multitext question')
         survey.add_question(Text, 'Single line text question')
-        survey.add_question(Dropdown, 'Favourite a fruit', 
-            field_parms={'a':'Apple', 'b':'Banana', 'k':'Kiwi'})
+        survey.add_question(MultiText, 'Multiline question', required=True)
+        survey.add_question(Dropdown, 'Favourite fruit', 
+            field_parms=OrderedDict([('a','Apple'), ('b','Banana'), 
+                ('k','Kiwi')]))
+        survey.add_question(Radio, 'Planet', 
+            field_parms=OrderedDict([('e','Earth'), ('m','Mars')]))
         survey.add_question(Checkboxes, 'Choose all that apply',
-            field_parms={'b':'BMW', 'v':'Volkswagon', 'a':'Audi'})
+            field_parms=OrderedDict([('a','Audi'), ('b','BMW'), 
+                ('v','Volkswagon')]))
         survey.add_question(Rating, 'Rate our service')
 
         survey = Survey.objects.create(name='Favourites Survey')

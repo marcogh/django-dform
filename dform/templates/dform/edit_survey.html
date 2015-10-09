@@ -1,0 +1,497 @@
+{% extends "dform/base.html" %}
+{% block title %}Edit Survey{% endblock title %}
+
+{% block nav %}
+<nav class="navbar navbar-default navbar-fixed-top">
+  <div class="container">
+    <div class="navbar-header">
+      <button type="button" class="navbar-toggle collapsed"
+          data-toggle="collapse" data-target="#navbar"
+          aria-expanded="false" aria-controls="navbar">
+        <span class="sr-only">Toggle Navigation</span>
+        <span class="icon-bar"></span>
+        <span class="icon-bar"></span>
+        <span class="icon-bar"></span>
+      </button>
+    </div>
+    <div id="navbar" class="collapse navbar-collapse">
+      <div class="row">
+        <div class="col-sm-8 col-sm-offset-2">
+          <form class="navbar-form navbar-left">
+            <button id="save" class="btn btn-sm btn-primary navbar-btn">
+              Save
+            </button>
+            <button id="cancel" class="btn btn-sm btn-default navbar-btn">
+              Cancel
+            </button>
+          </form>
+          <ul class="nav navbar-nav navbar-right">
+            <li class="dropdown navbar-right">
+              <a href="#" class="dropdown-toggle" data-toggle="dropdown"
+                  role="button" aria-haspopup="true" aria-expanded="false">
+                Add Question <span class="caret"></span>
+              </a>
+              <ul class="dropdown-menu">
+                <li><a href="#" class="add-q" data-field="tx">Text</a></li>
+                <li>
+                  <a href="#" class="add-q" data-field="mt">Multi-line Text</a>
+                </li>
+                <li><a href="#" class="add-q" data-field="dr">Dropdown</a></li>
+                <li>
+                  <a href="#" class="add-q" data-field="rd">Radiobuttons</a>
+                </li>
+                <li>
+                  <a href="#" class="add-q" data-field="ch">Checkboxes</a>
+                </li>
+                <li><a href="#" class="add-q" data-field="rt">Rating</a></li>
+              </ul>
+            </li>
+          </ul>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</nav>
+{% endblock nav %}
+
+{% block contents %}
+<div class="row form-horizontal">
+  <div class="col-sm-8 col-sm-offset-2">
+
+    <div class="panel panel-default">
+      <div class="panel-body">
+        <div class="form-group">
+          <label for="name" class="col-sm-3 control-label">
+            Survey Name:
+          </label>
+          <div class="col-sm-9">
+            <input id="name" type="text" class="form-control"/>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="questions">
+    </div>
+
+  </div>
+</div>
+{% endblock contents %}
+
+{% block script %}
+
+<!-- Handlebar Templates -->
+{% verbatim %}
+<script id="question-template" type="text/x-handlebars-template">
+  <div class="question panel panel-default" 
+      data-internal_id="{{internal_id}}" data-q_id="{{q_id}}"
+      data-q_type="{{q_type}}"
+    >
+    <div class="panel-heading">
+      <div class="row">
+        <div class="col-md-10">
+          <span class="h4 text-primary"> {{q_type_name}} </span>
+        </div>
+        <div class="col-md-1 text-right">
+          <a href="#" class="move-question-up">
+            <span class="glyphicon glyphicon-arrow-up"></span>
+          </a>
+          <a href="#" class="move-question-down">
+            <span class="glyphicon glyphicon-arrow-down"></span>
+          </a>
+        </div>
+        <div class="col-md-1 text-right">
+          <a href="#" class="remove-question">
+            <span class="glyphicon glyphicon-remove-sign text-danger"></span>
+          </a>
+        </div>
+      </div>
+    </div>
+    <div class="panel-body">
+      <div class="form-group">
+        <label for="q1" class="col-sm-3 control-label">Question:</label>
+        <div class="col-sm-9">
+          <input class="q-text form-control" type="text" value="{{q_text}}"/>
+        </div>
+      </div>
+      <div class="form-group">
+        <div class="col-sm-9 col-sm-offset-3">
+          <label>
+            <input class="q-required" type="checkbox" {{checked}}> Required
+          </label>
+        </div>
+      </div>
+  {{! divs completed elsewhere}}
+</script>
+
+
+<script id="kv-choice-template" type="text/x-handlebars-template">
+
+  <div class="row kv-choice">
+    <div class="col-sm-3 no-right-gutter">
+      <label for="k-{{k_id}}">Key:</label>
+      <input id="k-{{k_id}}" type="text" value="{{key}}"
+        class="form-control kv-key"/>
+    </div>
+    <div class="col-sm-7 no-left-gutter">
+      <label for="v-{{v_id}}">Value:</label>
+      <input id="v-{{v_id}}" type="text" value="{{value}}" 
+        class="form-control kv-value"/>
+    </div>
+    <div class="col-sm-2 text-right no-left-gutter">
+      <div class="kv-actions">
+        <a href="#" class="move-kv-up">
+          <span class="glyphicon glyphicon-arrow-up"></span>
+        </a>
+        <a href="#" class="move-kv-down">
+          <span class="glyphicon glyphicon-arrow-down"></span>
+        </a>
+        <a href="#" class="remove-key">
+          <span class="glyphicon glyphicon-remove-sign text-danger"
+            ></span>
+        </a>
+      </div>
+    </div>
+  </div>
+</script>
+
+
+<script id="new-kv-choice-template" type="text/x-handlebars-template">
+  {{> kv_choice }}
+</script>
+
+
+<script id="choices-template" type="text/x-handlebars-template">
+  <div class="form-group">
+    <label class="col-sm-3 control-label">
+      Choices:
+    </label>
+    <div class="col-sm-9">
+
+      <div class="well well-sm choices-well form-inline">
+        <div class="kv-choices">
+        {{#each choices}}
+          {{> kv_choice }}
+        {{/each}}
+        </div>
+
+        <div class="row add-choice-row">
+          <div class="col-sm-12 text-right">
+            <button class="btn btn-xs btn-info add-choice">Add Choice</button>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</script>
+{% endverbatim %}
+
+
+<!-- Javascript -->
+<script type="text/javascript">
+var internal_id = 0;
+var data = JSON.parse('{{survey|escapejs}}');
+var remove_list = [];
+
+// create Handlebars templates
+var src = $('#question-template').html();
+var question_template = Handlebars.compile(src);
+
+src = $('#choices-template').html();
+var choices_template = Handlebars.compile(src);
+
+src = $('#kv-choice-template').html();
+Handlebars.registerPartial('kv_choice', src);
+
+src = $('#new-kv-choice-template').html();
+var new_kv_choice_template = Handlebars.compile(src);
+
+// -------------------------------------------------------------
+// Template Management
+// -------------------------------------------------------------
+
+function question_body(q_id, q_type, q_type_name, q_text, required) {
+  var context = {
+    q_id:q_id,
+    q_type:q_type,
+    q_type_name:q_type_name,
+    q_text:q_text,
+    checked:'',
+  }
+
+  if( required ) {
+    context['checked'] = 'checked';
+  }
+
+  internal_id += 1;
+  return question_template(context);
+}
+
+
+function choices_body(parms) {
+  var context = {
+    choices:[],
+  }
+
+  for(var key in parms) {
+    if( parms.hasOwnProperty(key) ) {
+      internal_id += 2;
+
+      context['choices'].push({
+        key:key,
+        k_id:internal_id - 1,
+        v_id:internal_id,
+        value:parms[key],
+      });
+    }
+  }
+
+  return choices_template(context);
+}
+
+
+function add_question(q_id, q_type, q_text, required, parms) {
+  var html;
+  switch(q_type) {
+    case 'tx':
+      html = question_body(q_id, q_type, 'Text', q_text, required);
+      break;
+    case 'mt':
+      html = question_body(q_id, q_type, 'Multiline', q_text, required);
+      break;
+    case 'dr':
+      html = question_body(q_id, q_type, 'Dropdown', q_text, required);
+      html += choices_body(parms);
+      break;
+    case 'rd':
+      html = question_body(q_id, q_type, 'Radio', q_text, required);
+      html += choices_body(parms);
+      break;
+    case 'ch':
+      html = question_body(q_id, q_type, 'Checkboxes', q_text, required);
+      html += choices_body(parms);
+      break;
+    case 'rt':
+      html = question_body(q_id, q_type, 'Rating', q_text, required);
+      break;
+  }
+
+  // close the div structures
+  html += 
+    '    </div>' +
+    '  </div>';
+
+  $('#questions').append(html);
+}
+
+
+function new_question(q_type) {
+  return add_question(0, q_type, '', false, {});
+}
+
+// -------------------------------------------------------------
+// Utilities
+// -------------------------------------------------------------
+
+function fix_arrows() {
+  $('#questions .move-question-up').css('visibility', 'visible');
+  $('#questions .move-question-down').css('visibility', 'visible');
+
+  $('#questions .move-question-up').first().css('visibility', 'hidden');
+  $('#questions .move-question-down').last().css('visibility', 'hidden');
+
+  $('#questions .move-kv-up').css('visibility', 'visible');
+  $('#questions .move-kv-down').css('visibility', 'visible');
+
+  $('#questions .choices-well').each(function() {
+    $(this).find('.move-kv-up').first().css('visibility', 'hidden');
+    $(this).find('.move-kv-down').last().css('visibility', 'hidden');
+  });
+}
+
+
+function move_up(obj, closest) {
+  var container = obj.closest(closest);
+  var above = container.prev();
+
+  container.fadeOut('slow', function() {
+    container.insertBefore(above).fadeIn({
+      duration:'slow',
+      start: function() {
+        fix_arrows();
+      }
+    });
+  });
+
+  return false;
+}
+
+
+function move_down(obj, closest) {
+  var container = obj.closest(closest);
+  var below = container.next();
+
+  container.fadeOut('slow', function() {
+    container.insertAfter(below).fadeIn({
+      duration:'slow',
+      start: function() {
+        fix_arrows();
+      }
+    });
+  });
+
+  return false;
+}
+
+// -------------------------------------------------------------
+// Event Management
+// -------------------------------------------------------------
+
+function register_add_actions() {
+  $('nav').on('click', '.add-q', function() {
+    var q_type = $(this).data('field');
+    new_question(q_type);
+    fix_arrows();
+  });
+
+  $('#questions').on('click', '.add-choice', function() {
+    var choices = $(this).closest('.choices-well').find('.kv-choices');
+    var context = {};
+    var content = new_kv_choice_template(context);
+    choices.append(content);
+    fix_arrows();
+  });
+}
+
+
+function register_move_actions() {
+  // --- Move Questions
+  $('#questions').on('click', '.move-question-up', function() {
+    return move_up($(this), '.question');
+  });
+
+  $('#questions').on('click', '.move-question-down', function() {
+    return move_down($(this), '.question');
+  });
+
+  // -- Move Choice Widgets
+  $('#questions').on('click', '.move-kv-up', function() {
+    return move_up($(this), '.kv-choice');
+  });
+
+  $('#questions').on('click', '.move-kv-down', function() {
+    return move_down($(this), '.kv-choice');
+  });
+}
+
+
+function remove_obj(obj, closest) {
+  var container = obj.closest(closest);
+
+  container.fadeOut({
+    duration:'slow',
+    always: function() {
+      container.remove();
+      fix_arrows();
+    },
+  });
+
+  return false;
+}
+
+function register_remove_actions() {
+  // --- remove question event
+  $('#questions').on('click', '.remove-question', function() {
+    var question = $(this).closest('.question');
+    var q_id = question.data('q_id');
+    if( q_id != 0 ) {
+      remove_list.push(q_id);
+    }
+
+    return remove_obj($(this), '.question');
+  });
+
+  // --- remove choice event
+  $('#questions').on('click', '.remove-key', function() {
+    return remove_obj($(this), '.kv-choice');
+  });
+}
+
+
+function register_done_actions() {
+  $('#save').click(function() {
+    var delta = {
+      name:$('#name').val(),
+      questions:[],
+      remove:remove_list,
+    };
+
+    $('.question').each(function() {
+      var question = {
+        id:$(this).data('q_id'),
+        field_key:$(this).data('q_type'),
+        required:$(this).find('.q-required').is(':checked'),
+        text:$(this).find('.q-text').val(),
+        field_parms:{},
+      };
+
+      $(this).find('.kv-choice').each(function () {
+        var key = $(this).find('.kv-key').val();
+        var value = $(this).find('.kv-value').val();
+        $.trim(key)
+        if( key != '' ) {
+          question['field_parms'][key] = value;
+        }
+      });
+
+      delta['questions'].push(question);
+    });
+
+    var data = {
+      csrfmiddlewaretoken:'{{csrf_token}}',
+      delta:JSON.stringify(delta),
+    }
+
+    $.ajax({
+      method:'POST',
+      url:'{{save_url}}',
+      data:data,
+      success:function() {
+        window.location.assign('{{return_url}}');
+      },
+    });
+
+    return false;
+  });
+
+  $('#cancel').click(function() {
+    window.location.assign('{{return_url}}');
+    return false;
+  });
+}
+
+// -------------------------------------------------------------
+// Main
+// -------------------------------------------------------------
+
+$(function() {
+  $('#name').val(data['name']);
+
+  register_add_actions();
+  register_remove_actions();
+  register_move_actions();
+  register_done_actions();
+
+  // --- build questions
+  for(var i=0; i<data['questions'].length; i++) {
+    q = data['questions'][i];
+    add_question(q['id'], q['field_key'], q['text'], q['required'], 
+      q['field_parms']);
+  }
+
+  fix_arrows();
+});
+</script>
+{% endblock script %}
