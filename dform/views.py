@@ -19,6 +19,7 @@ logger = logging.getLogger(__name__)
 # AJAX Methods 
 # ============================================================================
 
+@staff_member_required
 @post_required(['delta'])
 def survey_delta(request, survey_version_id):
     delta = json.loads(request.POST['delta'], object_pairs_hook=OrderedDict)
@@ -28,10 +29,9 @@ def survey_delta(request, survey_version_id):
         version = survey.latest_version
     else:
         version = get_object_or_404(SurveyVersion, id=survey_version_id)
-        survey = version.survey
 
     try:
-        survey.replace_from_dict(delta, version)
+        version.replace_from_dict(delta)
     except EditNotAllowedException:
         raise Http404('Survey %s is not editable' % version.survey)
     except Question.DoesNotExist as dne:
@@ -49,13 +49,12 @@ def survey_editor(request, survey_version_id):
         version = survey.latest_version
     else:
         version = get_object_or_404(SurveyVersion, id=survey_version_id)
-        survey = version.survey
 
     admin_link = reverse('admin:index')
     return_url = request.META.get('HTTP_REFERER', admin_link)
     save_url = reverse('dform-survey-delta', args=(version.id, ))
     data = {
-        'survey':json.dumps(survey.to_dict(version)),
+        'survey_version':json.dumps(version.to_dict()),
         'save_url':save_url,
         'return_url':return_url,
     }
@@ -71,3 +70,21 @@ def new_version(request, survey_id):
     admin_link = reverse('admin:index')
     return_url = request.META.get('HTTP_REFERER', admin_link)
     return HttpResponseRedirect(return_url)
+
+# ============================================================================
+# Form Views
+# ============================================================================
+
+#def sample_form(request, version_id):
+#    """A view for displaying a sample version of a form.  The submit mechanism
+#    does nothing.
+#
+#    :param version_id:
+#        Id of a :class:`SurveyVersion` object
+#    """
+#    version = get_object_or_404(SurveyVersion, id=survey_version_id)
+#    data = {
+#        'version':version,
+#    }
+#
+#    return render_page(request, 'dform/sample_survey.html', data)

@@ -29,11 +29,13 @@ settings.configure(
         'django.contrib.contenttypes',
         'django.contrib.sessions',
         'django.contrib.admin',
+        'django.contrib.staticfiles',
         'awl',
         'awl.rankedmodel',
         'dform',
         'dform.tests',
     ),
+    STATIC_URL='/static/',
     TEMPLATE_DIRS = (
         os.path.abspath(os.path.join(BASE_DIR, 'dform/templates')),
     )
