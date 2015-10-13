@@ -43,6 +43,17 @@ class ChoicesStorage(object):
             raise ValidationError('value was not in available choices')
 
 
+class MultipleChoicesStorage(object):
+    storage_key = 'answer_key'
+
+    @classmethod
+    def check_value(cls, field_parms, value):
+        keys = value.split(',')
+        for key in keys:
+            if key not in field_parms:
+                raise ValidationError('value was not in available choices')
+
+
 class NumberStorage(object):
     storage_key = 'answer_float'
 
@@ -59,26 +70,32 @@ class NumberStorage(object):
 
 class Text(Field, TextStorage):
     field_key = 'tx'
+    template = 'dform/fields/text.html'
 
 
 class MultiText(Field, TextStorage):
     field_key = 'mt'
+    template = 'dform/fields/multitext.html'
 
 
 class Dropdown(ChoiceField, ChoicesStorage):
     field_key = 'dr'
+    template = 'dform/fields/dropdown.html'
 
 
 class Radio(ChoiceField, ChoicesStorage):
     field_key = 'rd'
+    template = 'dform/fields/radio.html'
 
 
-class Checkboxes(ChoiceField, ChoicesStorage):
+class Checkboxes(ChoiceField, MultipleChoicesStorage):
     field_key = 'ch'
+    template = 'dform/fields/checkboxes.html'
 
 
 class Rating(Field, NumberStorage):
     field_key = 'rt'
+    template = 'dform/fields/rating.html'
 
 # ============================================================================
 

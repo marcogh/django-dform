@@ -1,7 +1,9 @@
 import json, copy
 from collections import OrderedDict
 from django.core.exceptions import ValidationError
+from django.core.urlresolvers import reverse, NoReverseMatch
 from django.test import TestCase
+from mock import Mock, patch
 
 from awl.waelsteng import AdminToolsMixin
 from wrench.utils import parse_link
@@ -114,8 +116,12 @@ class SurveyTests(TestCase):
 
         a = first_version.answer_question(cb, 1, 'e')
         self.assertEqual(a.value, 'e')
+        a = first_version.answer_question(cb, 2, 'e,f')
+        self.assertEqual(a.value, 'e,f')
         with self.assertRaises(ValidationError):
-            first_version.answer_question(dr, 1, 'z')
+            first_version.answer_question(cb, 3, 'z')
+        with self.assertRaises(ValidationError):
+            first_version.answer_question(cb, 3, 'e,z')
 
         a = first_version.answer_question(rt, 1, 1)
         self.assertEqual(a.value, 1.0)
@@ -212,7 +218,78 @@ class SurveyTests(TestCase):
             survey.replace_from_dict(delta)
 
 
+def fake_reverse(name, args):
+    if name == 'dform-sample-survey':
+        raise NoReverseMatch
+
+    return reverse(name, args=args)
+
+
 class AdminTestCase(TestCase, AdminToolsMixin):
+    def test_without_urls(self):
+        # what actions are available depend on whether the dform.urls.py file
+        # is used or not, and need to be able to change if it isn't there; it
+        # is always there when testing, so we'll need to use mock to force the
+        # code to execute
+        self.initiate()
+        survey_admin = SurveyAdmin(Survey, self.site)
+        version_admin = SurveyVersionAdmin(SurveyVersion, self.site)
+        survey, _, tx, _, _, _, _ = sample_survey()
+
+        with patch('dform.admin.reverse') as mock_reverse:
+            mock_reverse.side_effect = fake_reverse
+
+            html = self.field_value(survey_admin, survey, 'show_actions')
+            actions = html.split(',')
+            self.assertEqual(1, len(actions))
+
+            url, text = parse_link(html)
+            self.assertEqual(text, 'Edit Survey')
+
+            # -- SurveyVersion of same test
+            result = self.field_value(version_admin, survey.latest_version, 
+                'show_actions')
+            self.assertEqual(1, len(actions))
+
+            url, text = parse_link(html)
+            self.assertEqual(text, 'Edit Survey')
+
+            # -- repeat with locked survey
+            answer = 'answer and stuff and things'
+            survey.answer_question(tx, 1, answer)
+
+            html = self.field_value(survey_admin, survey, 'show_actions')
+            actions = html.split(',')
+            self.assertEqual(1, len(actions))
+
+            url, text = parse_link(html)
+            self.assertEqual(text, 'New Version')
+
+            # -- SurveyVersion of same test
+            result = self.field_value(version_admin, survey.latest_version, 
+                'show_actions')
+            self.assertEqual('', result)
+
+    def assert_edit_link(self, link):
+        url, text = parse_link(link)
+        self.assertEqual('Edit Survey', text)
+
+        response = self.authed_get(url)
+        self.assertTemplateUsed(response, 'dform/edit_survey.html')
+
+    def assert_sample_link(self, link):
+        url, text = parse_link(link)
+        self.assertEqual('View Sample', text)
+
+        response = self.authed_get(url)
+        self.assertTemplateUsed(response, 'dform/sample_survey.html')
+
+    def assert_version_link(self, link):
+        url, text = parse_link(link)
+        self.assertEqual('New Version', text)
+
+        response = self.authed_get(url, response_code=302)
+
     def test_survey_admin(self):
         self.initiate()
 
@@ -226,25 +303,27 @@ class AdminTestCase(TestCase, AdminToolsMixin):
         self.assertEqual('1', result)
 
         # -- show_actions
-        response = self.visit_admin_link(survey_admin, survey, 'show_actions')
-        self.assertTemplateUsed(response, 'dform/edit_survey.html')
+        links = self.field_value(survey_admin, survey, 'show_actions')
+        edit, sample = links.split(',')
+        self.assert_edit_link(edit)
+        self.assert_sample_link(sample)
 
-        # verify SurveyVersion "edit" link
-        response = self.visit_admin_link(version_admin, first_version, 
-            'show_actions')
-        self.assertTemplateUsed(response, 'dform/edit_survey.html')
+        links = self.field_value(version_admin, first_version, 'show_actions')
+        edit, sample = links.split(',')
+        self.assert_edit_link(edit)
+        self.assert_sample_link(sample)
 
         # add answer and verify "new version" link
         answer = 'answer and stuff and things'
         survey.answer_question(tx, 1, answer)
 
-        self.visit_admin_link(survey_admin, survey, 'show_actions',
-            response_code=302)
-        self.assertEqual(2, survey.latest_version.version_num)
-        self.assertNotEqual(first_version, survey.latest_version)
+        links = self.field_value(survey_admin, survey, 'show_actions')
+        version, sample = links.split(',')
+        self.assert_version_link(version)
+        self.assert_sample_link(sample)
 
-        result = self.field_value(version_admin, first_version, 'show_actions')
-        self.assertEqual('', result)
+        link = self.field_value(version_admin, first_version, 'show_actions')
+        self.assert_sample_link(link)
 
         # -- show_versions
         self.visit_admin_link(survey_admin, survey, 'show_versions')
@@ -387,7 +466,7 @@ class AdminTestCase(TestCase, AdminToolsMixin):
 # Test Views
 # ============================================================================
 
-class SurveyViewTests(TestCase, AdminToolsMixin):
+class SurveyAdminViewTests(TestCase, AdminToolsMixin):
     def test_survey_delta_view(self):
         self.initiate()
         self.maxDiff = None
@@ -472,3 +551,15 @@ class SurveyViewTests(TestCase, AdminToolsMixin):
         response = self.authed_get('/dform_admin/survey_editor/%s/' %
             survey.latest_version.id)
         self.assertTemplateUsed(response, 'dform/edit_survey.html')
+
+
+class SurveyViewTests(TestCase):
+    def test_sample_survey(self):
+        # Only does rudimentary execution tests, doesn't test the actual 
+        # javascript editor
+        survey, mt, tx, dr, rd, cb, rt = sample_survey()
+
+        response = self.client.get('/dform/sample_survey/%s/' % (
+            survey.latest_version.id))
+        self.assertEqual(200, response.status_code)
+        self.assertTemplateUsed(response, 'dform/sample_survey.html')

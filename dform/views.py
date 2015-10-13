@@ -75,16 +75,16 @@ def new_version(request, survey_id):
 # Form Views
 # ============================================================================
 
-#def sample_form(request, version_id):
-#    """A view for displaying a sample version of a form.  The submit mechanism
-#    does nothing.
-#
-#    :param version_id:
-#        Id of a :class:`SurveyVersion` object
-#    """
-#    version = get_object_or_404(SurveyVersion, id=survey_version_id)
-#    data = {
-#        'version':version,
-#    }
-#
-#    return render_page(request, 'dform/sample_survey.html', data)
+def sample_survey(request, survey_version_id):
+    """A view for displaying a sample version of a form.  The submit mechanism
+    does nothing.
+
+    :param survey_version_id:
+        Id of a :class:`SurveyVersion` object
+    """
+    version = get_object_or_404(SurveyVersion, id=survey_version_id)
+    data = {
+        'survey_version':version,
+    }
+
+    return render_page(request, 'dform/sample_survey.html', data)

@@ -1,5 +1,5 @@
 from django.contrib import admin
-from django.core.urlresolvers import reverse
+from django.core.urlresolvers import reverse, NoReverseMatch
 
 from awl.admintools import make_admin_obj_mixin
 from awl.rankedmodel.admintools import admin_link_move_up, admin_link_move_down
@@ -56,12 +56,23 @@ class SurveyAdmin(admin.ModelAdmin):
     version_num.short_description = 'Latest Version'
 
     def show_actions(self, obj):
+        actions = []
+
         if obj.latest_version.is_editable():
             url = reverse('dform-edit-survey', args=(obj.latest_version.id,))
-            return '<a href="%s">Edit Survey</a>' % url
+            actions.append('<a href="%s">Edit Survey</a>' % url)
         else:
             url = reverse('dform-new-version', args=(obj.id,))
-            return '<a href="%s">New Version</a>' % url
+            actions.append('<a href="%s">New Version</a>' % url)
+
+        try:
+            url = reverse('dform-sample-survey', args=(obj.latest_version.id,))
+            actions.append('<a href="%s">View Sample</a>' % url)
+        except NoReverseMatch:
+            # view sample isn't guaranteed to be there
+            pass
+
+        return ', '.join(actions)
     show_actions.short_description = 'Actions'
     show_actions.allow_tags = True
 
@@ -95,11 +106,19 @@ class SurveyVersionAdmin(admin.ModelAdmin, mixin):
         'show_questions', 'show_answers')
 
     def show_actions(self, obj):
+        actions = []
         if obj.is_editable():
             url = reverse('dform-edit-survey', args=(obj.id,))
-            return '<a href="%s">Edit Survey</a>' % url
+            actions.append('<a href="%s">Edit Survey</a>' % url)
 
-        return ''
+        try:
+            url = reverse('dform-sample-survey', args=(obj.id,))
+            actions.append('<a href="%s">View Sample</a>' % url)
+        except NoReverseMatch:
+            # view sample isn't guaranteed to be there
+            pass
+
+        return ', '.join(actions)
     show_actions.short_description = 'Actions'
     show_actions.allow_tags = True
 

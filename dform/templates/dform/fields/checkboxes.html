@@ -1,0 +1,12 @@
+<div class="form-group">
+  <label for="q_{{question.id}}">{{question.text}}</label>
+  {% for value,text in question.field_parms.items %}
+    <div class="radio">
+      <label>
+        <input type="checkbox" id="q_{{question.id}}_{{value}}"
+          value="{{value}}">
+        {{text}}
+      </label>
+    </div>
+  {% endfor %}
+</div>

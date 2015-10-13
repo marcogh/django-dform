@@ -4,6 +4,7 @@ import logging, collections
 from django.db import models, transaction
 from django.db.models.signals import post_save
 from django.dispatch import receiver
+from django.template.loader import render_to_string
 from django.utils.encoding import python_2_unicode_compatible
 
 from jsonfield import JSONField
@@ -417,6 +418,12 @@ class Question(TimeTrackModel):
 
         return text
 
+    def render(self):
+        data = {
+            'question':self,
+        }
+        return render_to_string(self.field.template, data)
+
 
 @python_2_unicode_compatible
 class QuestionOrder(TimeTrackModel, RankedModel):
@@ -445,7 +452,7 @@ class Answer(TimeTrackModel):
     answer_group = models.PositiveSmallIntegerField()
 
     answer_text = models.TextField(blank=True)
-    answer_key = models.CharField(max_length=32, blank=True)
+    answer_key = models.TextField(blank=True)
     answer_float = models.FloatField(null=True, blank=True)
 
     def __str__(self):

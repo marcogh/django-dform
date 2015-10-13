@@ -1,0 +1,8 @@
+<div class="form-group">
+  <label for="q_{{question.id}}">{{question.text}}</label>
+  <select id="q_{{question.id}}" class="form-control">
+    {% for value,text in question.field_parms.items %}
+      <option value="{{value}}">{{text}}</option>
+    {% endfor %}
+  </select>
+</div>

@@ -6,5 +6,6 @@ urlpatterns = [
 
     url(r'rankedmodel/', include('awl.rankedmodel.urls')),
 
+    url(r'dform/', include('dform.urls')),
     url(r'dform_admin/', include('dform.admin_urls')),
 ]

@@ -1,5 +1,5 @@
 from django.conf.urls import patterns, url
 
 urlpatterns = patterns('dform.views',
-    url(r'sample_form/(\d+)/$', 'sample_form', ),
+    url(r'sample_survey/(\d+)/$', 'sample_survey', name='dform-sample-survey'),
 )

@@ -1,0 +1,21 @@
+{% extends "dform/base.html" %}
+{% block title %}Sample Survey:{{survey_version.survey.name}}{% endblock title %}
+
+{% block contents %}
+<div class="row">
+  <div class="col-sm-8 col-sm-offset-2">
+    <h2>{{survey_version.survey.name}}</h2>
+  </div>
+</div>
+<br/>
+<div class="row">
+  <div class="col-sm-8 col-sm-offset-2">
+    <form>
+      {% for question in survey_version.questions %}
+        {{question.render}}
+      {% endfor %}
+      <button class="btn btn-primary">Submit</button>
+    </form>
+  </div>
+</div>
+{% endblock contents %}
