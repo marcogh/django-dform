@@ -1,0 +1,2 @@
+CSS-only ratings widget based on code found here:
+    - http://jsfiddle.net/leaverou/CGP87/light/
