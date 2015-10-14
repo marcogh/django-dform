@@ -1,8 +1,9 @@
 # create_test_data.py
 from collections import OrderedDict
+from django.contrib.auth.models import User
 from django.core.management.base import BaseCommand
 
-from dform.models import Survey
+from dform.models import Survey, AnswerGroup
 from dform.fields import Text, MultiText, Dropdown, Radio, Checkboxes, Rating
 
 # =============================================================================
@@ -47,21 +48,23 @@ class Command(BaseCommand):
         q = survey.add_question(Text, 'What is your favourite colour?')
         
         # generate some answers
-        counter = 1
         for colour in colours:
-            survey.answer_question(q, counter, colour)
-            counter += 1
+            group = AnswerGroup.objects.create(
+                survey_version=survey.latest_version)
+            survey.answer_question(q, group, colour)
 
         survey.new_version()
         q2 = survey.add_question(Text, 
             'What is your favourite way of spelling "favourite"?')
 
-        survey.answer_question(q, counter, colour[0])
-        survey.answer_question(q2, counter, 'favourite')
-        counter += 1
+        group = AnswerGroup.objects.create(survey_version=survey.latest_version)
+        survey.answer_question(q, group, colour[0])
+        survey.answer_question(q2, group, 'favourite')
 
-        survey.answer_question(q, counter, colour[1])
-        survey.answer_question(q2, counter, 'with the "u"')
-        counter += 1
+        user = User.objects.first()
+        group = AnswerGroup.objects.create(survey_version=survey.latest_version,
+            group_data=user)
+        survey.answer_question(q, group, colour[1])
+        survey.answer_question(q2, group, 'with the "u"')
 
         survey.new_version()

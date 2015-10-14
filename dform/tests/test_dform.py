@@ -11,7 +11,7 @@ from wrench.utils import parse_link
 from dform.admin import (SurveyAdmin, SurveyVersionAdmin, QuestionAdmin,
     QuestionOrderAdmin, AnswerAdmin)
 from dform.models import (Survey, SurveyVersion, EditNotAllowedException, 
-    Question, QuestionOrder, Answer)
+    Question, QuestionOrder, Answer, AnswerGroup)
 from dform.fields import Text, MultiText, Dropdown, Radio, Checkboxes, Rating
 
 # ============================================================================
@@ -87,7 +87,8 @@ class SurveyTests(TestCase):
 
         # -- test answers
         answer = 'answer and stuff and things'
-        a1 = first_version.answer_question(tx, 1, answer)
+        answer_group = AnswerGroup.objects.create(survey_version=first_version)
+        a1 = first_version.answer_question(tx, answer_group, answer)
         self.assertEqual(a1.value, answer)
 
         # re-check version is_editable now that it shouldn't be
@@ -101,44 +102,48 @@ class SurveyTests(TestCase):
             first_version.remove_question(tx)
 
         # more answers
-        a = first_version.answer_question(mt, 1, 'answer\nanswer')
+        a = first_version.answer_question(mt, answer_group, 'answer\nanswer')
         self.assertEqual(a.value, 'answer\nanswer')
 
-        a = first_version.answer_question(dr, 1, 'a')
+        a = first_version.answer_question(dr, answer_group, 'a')
         self.assertEqual(a.value, 'a')
         with self.assertRaises(ValidationError):
-            first_version.answer_question(dr, 1, 'z')
+            first_version.answer_question(dr, answer_group, 'z')
 
-        a = first_version.answer_question(rd, 1, 'c')
+        a = first_version.answer_question(rd, answer_group, 'c')
         self.assertEqual(a.value, 'c')
         with self.assertRaises(ValidationError):
-            first_version.answer_question(dr, 1, 'z')
+            first_version.answer_question(dr, answer_group, 'z')
 
-        a = first_version.answer_question(cb, 1, 'e')
+        a = first_version.answer_question(cb, answer_group, 'e')
         self.assertEqual(a.value, 'e')
-        a = first_version.answer_question(cb, 2, 'e,f')
+
+        ag2 = AnswerGroup.objects.create(survey_version=first_version)
+        ag3 = AnswerGroup.objects.create(survey_version=first_version)
+        a = first_version.answer_question(cb, ag2, 'e,f')
         self.assertEqual(a.value, 'e,f')
         with self.assertRaises(ValidationError):
-            first_version.answer_question(cb, 3, 'z')
+            first_version.answer_question(cb, ag3, 'z')
         with self.assertRaises(ValidationError):
-            first_version.answer_question(cb, 3, 'e,z')
+            first_version.answer_question(cb, ag3, 'e,z')
 
-        a = first_version.answer_question(rt, 1, 1)
+        a = first_version.answer_question(rt, answer_group, 1)
         self.assertEqual(a.value, 1.0)
 
         # check number validation
         with self.assertRaises(ValidationError):
-            first_version.answer_question(rt, 1, 'a')
+            first_version.answer_question(rt, answer_group, 'a')
 
         # try to answer a question not in this version
         with self.assertRaises(AttributeError):
-            survey.answer_question(rt, 1, 1)
+            survey.answer_question(rt, answer_group, 1)
 
         # -- misc coverage items
         str(survey)
         str(first_version)
         str(tx)
         str(QuestionOrder.objects.first())
+        str(answer_group)
         str(a1)
 
 
@@ -212,7 +217,8 @@ class SurveyTests(TestCase):
             survey.replace_from_dict(delta)
 
         # -- verify disallowed editing
-        survey.answer_question(mt, 1, 'answer\nanswer')
+        ag = AnswerGroup.objects.create(survey_version=survey.latest_version)
+        survey.answer_question(mt, ag, 'answer\nanswer')
 
         with self.assertRaises(EditNotAllowedException):
             survey.replace_from_dict(delta)
@@ -256,7 +262,9 @@ class AdminTestCase(TestCase, AdminToolsMixin):
 
             # -- repeat with locked survey
             answer = 'answer and stuff and things'
-            survey.answer_question(tx, 1, answer)
+            ag = AnswerGroup.objects.create(
+                survey_version=survey.latest_version)
+            survey.answer_question(tx, ag, answer)
 
             html = self.field_value(survey_admin, survey, 'show_actions')
             actions = html.split(',')
@@ -315,7 +323,8 @@ class AdminTestCase(TestCase, AdminToolsMixin):
 
         # add answer and verify "new version" link
         answer = 'answer and stuff and things'
-        survey.answer_question(tx, 1, answer)
+        ag = AnswerGroup.objects.create(survey_version=survey.latest_version)
+        survey.answer_question(tx, ag, answer)
 
         links = self.field_value(survey_admin, survey, 'show_actions')
         version, sample = links.split(',')
@@ -392,7 +401,8 @@ class AdminTestCase(TestCase, AdminToolsMixin):
             survey.latest_version.id)
 
         # add answer
-        survey.answer_question(q, 1, '1st Answer')
+        ag = AnswerGroup.objects.create(survey_version=survey.latest_version)
+        survey.answer_question(q, ag, '1st Answer')
 
         html = self.field_value(survey_admin, survey, 'show_answers')
         self._assert_link(html, url, '1 Answer')
@@ -403,7 +413,8 @@ class AdminTestCase(TestCase, AdminToolsMixin):
         self.assertNotIn('Answers', html)
 
         # add another answer, handling multiples
-        survey.answer_question(q, 2, '2nd Answer')
+        ag2 = AnswerGroup.objects.create(survey_version=survey.latest_version)
+        survey.answer_question(q, ag2, '2nd Answer')
 
         html = self.field_value(survey_admin, survey, 'show_answers')
         self._assert_link(html, url, '2 Answers')
@@ -433,13 +444,15 @@ class AdminTestCase(TestCase, AdminToolsMixin):
         self.assertEqual('', html)
 
         # add an answer
-        a1 = survey.answer_question(q1, 1, '1st Answer')
+        ag = AnswerGroup.objects.create(survey_version=survey.latest_version)
+        a1 = survey.answer_question(q1, ag, '1st Answer')
         html = self.field_value(question_admin, q1, 'show_answers')
         self._assert_link(html, url, '1 Answer')
         self.assertNotIn('Answers', html)
 
         # another answer
-        survey.answer_question(q1, 2, '2nd Answer')
+        ag2 = AnswerGroup.objects.create(survey_version=survey.latest_version)
+        survey.answer_question(q1, ag2, '2nd Answer')
         html = self.field_value(question_admin, q1, 'show_answers')
         self._assert_link(html, url, '2 Answers')
 
@@ -529,7 +542,8 @@ class SurveyAdminViewTests(TestCase, AdminToolsMixin):
             response_code=404, data={'delta':json.dumps(delta)})
 
         # -- verify disallowed editing
-        survey.answer_question(mt, 1, 'answer\nanswer')
+        ag = AnswerGroup.objects.create(survey_version=survey.latest_version)
+        survey.answer_question(mt, ag, 'answer\nanswer')
         delta = {
             'name':'Foo',
         }

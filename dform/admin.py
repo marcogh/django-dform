@@ -5,11 +5,12 @@ from awl.admintools import make_admin_obj_mixin
 from awl.rankedmodel.admintools import admin_link_move_up, admin_link_move_down
 
 from .fields import FIELD_CHOICES_DICT
-from .models import Survey, SurveyVersion, Question, QuestionOrder, Answer
+from .models import (Survey, SurveyVersion, Question, QuestionOrder, Answer,
+    AnswerGroup)
 
 # ============================================================================
 
-def _questions_link(version):
+def _questions_link(version, show_reorder=True):
     num_q = Question.objects.filter(survey_versions=version).count()
     if num_q == 0:
         return ''
@@ -21,14 +22,22 @@ def _questions_link(version):
     show = reverse('admin:dform_question_changelist')
     reorder = reverse('admin:dform_questionorder_changelist')
 
-    url = ('<a href="%s?survey_versions__id=%s">%s Question%s</a>' 
-        '&nbsp;|&nbsp;<a href="%s?survey_version__id=%s">Reorder</a>') % (show, 
-        version.id, num_q, plural, reorder, version.id)
-    return url
+    urls = [
+        '<a href="%s?survey_versions__id=%s">%s Question%s</a>' % (show, 
+            version.id, num_q, plural)
+    ]
+
+    if show_reorder:
+        urls.append(
+            '<a href="%s?survey_version__id=%s">Reorder</a>' % (reorder, 
+                version.id)
+        )
+
+    return '&nbsp;|&nbsp'.join(urls)
 
 
 def _answers_link(version):
-    num_a = Answer.objects.filter(survey_version=version).count()
+    num_a = Answer.objects.filter(answer_group__survey_version=version).count()
     if num_a == 0:
         return ''
 
@@ -191,14 +200,14 @@ class QuestionOrderAdmin(admin.ModelAdmin):
 # ============================================================================
 
 mixin = make_admin_obj_mixin('AnswerMixin')
-mixin.add_obj_link('show_version', 'survey_version',
-    display='SurveyVersion.id={{obj.id}}')
+mixin.add_obj_link('show_group', 'answer_group',
+    display='AnswerGroup.id={{obj.id}}')
 mixin.add_obj_link('show_question', 'question',
     display='Question.id={{obj.id}}')
 
 @admin.register(Answer)
 class AnswerAdmin(admin.ModelAdmin, mixin):
-    list_display = ('id', 'show_version', 'show_question', 'show_text', 
+    list_display = ('id', 'show_group', 'show_question', 'show_text', 
         'show_field_key', 'value')
 
     def show_text(self, obj):
@@ -208,3 +217,37 @@ class AnswerAdmin(admin.ModelAdmin, mixin):
     def show_field_key(self, obj):
         return FIELD_CHOICES_DICT[obj.question.field_key]
     show_field_key.short_description = 'Field Key'
+
+
+mixin = make_admin_obj_mixin('AnswerGroupMixin')
+mixin.add_obj_link('show_data', 'group_data')
+mixin.add_obj_link('show_version', 'survey_version',
+    display='SurveyVersion.id={{obj.id}}')
+
+
+@admin.register(AnswerGroup)
+class AnswerGroupAdmin(admin.ModelAdmin, mixin):
+    list_display = ('id', 'show_version', 'show_data', 'show_questions',
+        'show_answers')
+
+    def show_questions(self, obj):
+        return _questions_link(obj.survey_version, False)
+    show_questions.short_description = 'Questions'
+    show_questions.allow_tags = True
+
+    def show_answers(self, obj):
+        num_a = Answer.objects.filter(answer_group=obj).count()
+        if num_a == 0:
+            return ''
+
+        plural = ''
+        if num_a > 1:
+            plural = 's'
+
+        link = reverse('admin:dform_answer_changelist')
+
+        url = '<a href="%s?survey_version__id=%s">%s Answer%s</a>' % (link,
+            obj.survey_version.id, num_a, plural)
+        return url
+    show_answers.short_description = 'Answers'
+    show_answers.allow_tags = True

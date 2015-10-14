@@ -1,6 +1,8 @@
 # dform.models.py
 import logging, collections
 
+from django.contrib.contenttypes.fields import GenericForeignKey
+from django.contrib.contenttypes.models import ContentType
 from django.db import models, transaction
 from django.db.models.signals import post_save
 from django.dispatch import receiver
@@ -174,11 +176,13 @@ class SurveyVersion(TimeTrackModel):
         verbose_name = 'Survey Version'
 
     def validate_editable(self):
-        if Answer.objects.filter(survey_version=self).count() != 0:
+        if Answer.objects.filter(
+                answer_group__survey_version=self).count() != 0:
             raise EditNotAllowedException()
 
     def is_editable(self):
-        return Answer.objects.filter(survey_version=self).count() == 0
+        count = Answer.objects.filter(answer_group__survey_version=self).count()
+        return count == 0
 
     def add_question(self, field, text, rank=0, required=False, field_parms={}):
         """Creates a new :class:`Question` for this ``SurveyVersion``.
@@ -272,7 +276,7 @@ class SurveyVersion(TimeTrackModel):
         except SurveyVersion.DoesNotExist:
             raise AttributeError()
 
-        return Answer.factory(self, question, answer_group, value)
+        return Answer.factory(question, answer_group, value)
 
     def to_dict(self):
         """Returns a dictionary representation of this survey version.
@@ -445,27 +449,39 @@ class QuestionOrder(TimeTrackModel, RankedModel):
 
 
 @python_2_unicode_compatible
-class Answer(TimeTrackModel):
-    question = models.ForeignKey(Question)
+class AnswerGroup(TimeTrackModel):
     survey_version = models.ForeignKey(SurveyVersion)
 
-    answer_group = models.PositiveSmallIntegerField()
+    content_type = models.ForeignKey(ContentType, null=True, blank=True)
+    object_id = models.PositiveIntegerField(default=0)
+    group_data = GenericForeignKey('content_type', 'object_id')
+
+    class Meta:
+        verbose_name = 'Answer Group'
+
+    def __str__(self):
+        return 'AnswerGroup(id=%s data=%s)' % (self.id, self.group_data)
+
+
+@python_2_unicode_compatible
+class Answer(TimeTrackModel):
+    question = models.ForeignKey(Question)
+    answer_group = models.ForeignKey(AnswerGroup)
 
     answer_text = models.TextField(blank=True)
     answer_key = models.TextField(blank=True)
     answer_float = models.FloatField(null=True, blank=True)
 
     def __str__(self):
-        return 'Answer(id=%s q.id=%s value=%s)' % (self.id, self.question.id,
-            self.display_value)
+        return 'Answer(id=%s ag.id=%s q.id=%s value=%s)' % (self.id, 
+            self.answer_group.id, self.question.id, self.display_value)
 
     @classmethod
-    def factory(cls, survey_version, question, answer_group, value):
+    def factory(cls, question, answer_group, value):
         question.field.check_value(question.field_parms, value)
         kwargs = {
-            'survey_version':survey_version,
-            'question':question,
             'answer_group':answer_group,
+            'question':question,
         }
         kwargs[question.field.storage_key] = value
         return Answer.objects.create(**kwargs)
