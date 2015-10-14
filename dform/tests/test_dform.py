@@ -9,7 +9,7 @@ from awl.waelsteng import AdminToolsMixin
 from wrench.utils import parse_link
 
 from dform.admin import (SurveyAdmin, SurveyVersionAdmin, QuestionAdmin,
-    QuestionOrderAdmin, AnswerAdmin)
+    QuestionOrderAdmin, AnswerAdmin, AnswerGroupAdmin)
 from dform.models import (Survey, SurveyVersion, EditNotAllowedException, 
     Question, QuestionOrder, Answer, AnswerGroup)
 from dform.fields import Text, MultiText, Dropdown, Radio, Checkboxes, Rating
@@ -474,6 +474,46 @@ class AdminTestCase(TestCase, AdminToolsMixin):
 
         text = self.field_value(answer_admin, a1, 'show_field_key')
         self.assertEqual('Text', text)
+
+    def test_answer(self):
+        self.initiate()
+
+        answer_admin = AnswerAdmin(Answer, self.site)
+        answer_group_admin = AnswerGroupAdmin(AnswerGroup, self.site)
+
+        survey = Survey.objects.create(name='survey')
+        q1 = survey.add_question(Text, '1st question')
+
+        # create a basic AnswerGroup and test its results
+        ag1 = AnswerGroup.objects.create(survey_version=survey.latest_version)
+
+        result = self.field_value(answer_group_admin, ag1, 'show_data')
+        self.assertEqual('', result)
+        html = self.field_value(answer_group_admin, ag1, 'show_questions')
+        url, text = parse_link(html)
+        self.assertEqual('1 Question', text)
+        result = self.field_value(answer_group_admin, ag1, 'show_answers')
+        self.assertEqual('', result)
+
+        # add a question and check for change
+        q2 = survey.add_question(Text, '2nd question')
+
+        html = self.field_value(answer_group_admin, ag1, 'show_questions')
+        url, text = parse_link(html)
+        self.assertEqual('2 Questions', text)
+
+        # add an answer and check for change
+        answer = survey.answer_question(q1, ag1, 'stuff')
+        html = self.field_value(answer_group_admin, ag1, 'show_answers')
+        url, text = parse_link(html)
+        self.assertEqual('1 Answer', text)
+
+        # add another answer
+        answer = survey.answer_question(q1, ag1, 'stuff')
+        html = self.field_value(answer_group_admin, ag1, 'show_answers')
+        url, text = parse_link(html)
+        self.assertEqual('2 Answers', text)
+
 
 # ============================================================================
 # Test Views
