@@ -1,0 +1,44 @@
+{% for field in form %}
+  <!-- 
+    {{field}}
+    {{field.field.question}}
+    {{field.field.question.field}}
+    {{field.field.question.field.field_key}}
+  -->
+
+<div class="form-group">
+  <label for="{{field.id}}">{{field.field.question.text}}</label>
+  {% if field.field.question.field.field_key == 'rd' %}
+      {% for choice in field %}
+        <div class="radio">
+          <label for="{{choice.id_for_label}}">
+            {{choice.tag}}
+            {{choice.choice_label}}
+          </label>
+        </div>
+      {% endfor %}
+  {% elif field.field.question.field.field_key == 'ch' %}
+      {% for choice in field %}
+        <div class="checkbox">
+          <label>
+            {{choice.tag}}
+            {{choice.choice_label}}
+          </label>
+        </div>
+      {% endfor %}
+  {% elif field.field.question.field.field_key == 'rt' %}
+    <div class="row">
+      <div class="col-sm-12">
+        <div class="rating">
+          {% for choice in field %}
+            {{choice.tag}}<label for="{{choice.id_for_label}}"
+              >{{choice.label}}</label>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+  {% else %}
+    {{field}}
+  {% endif %}
+</div>
+{% endfor %}

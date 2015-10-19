@@ -6,6 +6,7 @@ from django.contrib.contenttypes.models import ContentType
 from django.db import models, transaction
 from django.db.models.signals import post_save
 from django.dispatch import receiver
+from django.template import Context, Template
 from django.template.loader import render_to_string
 from django.utils.encoding import python_2_unicode_compatible
 
@@ -28,6 +29,7 @@ class EditNotAllowedException(Exception):
 @python_2_unicode_compatible
 class Survey(TimeTrackModel):
     name = models.CharField(max_length=50)
+    success_redirect = models.TextField()
 
     def __str__(self):
         return 'Survey(id=%s %s)' % (self.id, self.name)
@@ -167,6 +169,7 @@ def survey_post_save(sender, **kwargs):
 class SurveyVersion(TimeTrackModel):
     survey = models.ForeignKey(Survey)
     version_num = models.PositiveSmallIntegerField(default=1)
+    success_redirect = models.TextField(blank=True)
 
     def __str__(self):
         return 'SurveyVersion(id=%s survey=%s, num=%s)' % (self.id, 
@@ -183,6 +186,21 @@ class SurveyVersion(TimeTrackModel):
     def is_editable(self):
         count = Answer.objects.filter(answer_group__survey_version=self).count()
         return count == 0
+
+    def on_success(self):
+        """Called when this survey version has been successfully submitted.
+        Uses the ``success_redirect`` field, if it is empty then uses the
+        associated :class:`Survey` object's ``success_redirect`` field.  The
+        fields is processed as a django template with this survey version as
+        context and the result is returned.
+        """
+        redirect = self.survey.success_redirect
+        if self.success_redirect:
+            redirect = self.success_redirect
+
+        template = Template(redirect)
+        context = Context({'survey_version':self})
+        return template.render(context)
 
     def add_question(self, field, text, rank=0, required=False, field_parms={}):
         """Creates a new :class:`Question` for this ``SurveyVersion``.
@@ -411,6 +429,13 @@ class Question(TimeTrackModel):
     @property
     def field(self):
         return FIELDS_DICT[self.field_key]
+
+    def field_choices(self):
+        choices = []
+        for k, v in self.field_parms.items():
+            choices.append((k, v))
+
+        return choices
 
     @property
     def short_text(self):

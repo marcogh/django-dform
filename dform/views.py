@@ -10,6 +10,7 @@ from awl.decorators import post_required
 from awl.utils import render_page
 
 from .fields import FIELDS_DICT
+from .forms import SurveyForm
 from .models import (EditNotAllowedException, Survey, SurveyVersion, Question,
     QuestionOrder)
 
@@ -85,6 +86,18 @@ def sample_survey(request, survey_version_id):
     version = get_object_or_404(SurveyVersion, id=survey_version_id)
     data = {
         'survey_version':version,
+        'form':SurveyForm(survey_version=version),
     }
 
     return render_page(request, 'dform/sample_survey.html', data)
+
+
+def survey(request, survey_version_id):
+    version = get_object_or_404(SurveyVersion, id=survey_version_id)
+
+    if request.method == 'POST':
+        answer_group = AnswerGroup.objects.create(survey_version=version)
+        version.create_answers(request.POST)
+    else:
+        pass
+

@@ -31,7 +31,8 @@ colours = [ 'Pink', 'LightPink', 'HotPink', 'DeepPink', 'PaleVioletRed',
 
 class Command(BaseCommand):
     def handle(self, *args, **options):
-        survey = Survey.objects.create(name='Sample Survey')
+        survey = Survey.objects.create(name='Sample Survey',
+            success_redirect='/admin/')
         survey.add_question(Text, 'Single line text question')
         survey.add_question(MultiText, 'Multiline question', required=True)
         survey.add_question(Dropdown, 'Favourite fruit', 
@@ -44,7 +45,8 @@ class Command(BaseCommand):
                 ('v','Volkswagon')]))
         survey.add_question(Rating, 'Rate our service')
 
-        survey = Survey.objects.create(name='Favourites Survey')
+        survey = Survey.objects.create(name='Favourites Survey', 
+            success_redirect='/admin/')
         q = survey.add_question(Text, 'What is your favourite colour?')
         
         # generate some answers

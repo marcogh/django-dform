@@ -2,12 +2,17 @@
 import logging
 
 from django.core.exceptions import ValidationError
+from django.forms import fields
+from django.forms import widgets
 
 logger = logging.getLogger(__name__)
 
 # ============================================================================
 
 class Field(object):
+    django_widget = ''
+    form_control = True
+
     @classmethod
     def check_field_parms(cls, field_parms):
         if field_parms:
@@ -71,31 +76,44 @@ class NumberStorage(object):
 class Text(Field, TextStorage):
     field_key = 'tx'
     template = 'dform/fields/text.html'
+    django_field = fields.CharField
 
 
 class MultiText(Field, TextStorage):
     field_key = 'mt'
     template = 'dform/fields/multitext.html'
+    django_field = fields.CharField
+    django_widget = widgets.Textarea
 
 
 class Dropdown(ChoiceField, ChoicesStorage):
     field_key = 'dr'
     template = 'dform/fields/dropdown.html'
+    django_field = fields.ChoiceField
+    django_widget = widgets.Select
 
 
 class Radio(ChoiceField, ChoicesStorage):
     field_key = 'rd'
     template = 'dform/fields/radio.html'
+    django_field = fields.ChoiceField
+    django_widget = widgets.RadioSelect
+    form_control = False
 
 
 class Checkboxes(ChoiceField, MultipleChoicesStorage):
     field_key = 'ch'
     template = 'dform/fields/checkboxes.html'
+    django_field = fields.ChoiceField
+    django_widget = widgets.CheckboxSelectMultiple
+    form_control = False
 
 
 class Rating(Field, NumberStorage):
     field_key = 'rt'
     template = 'dform/fields/rating.html'
+    django_field = fields.ChoiceField
+    django_widget = widgets.RadioSelect
 
 # ============================================================================
 

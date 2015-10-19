@@ -11,9 +11,7 @@
 <div class="row">
   <div class="col-sm-8 col-sm-offset-2">
     <form>
-      {% for question in survey_version.questions %}
-        {{question.render}}
-      {% endfor %}
+      {{form.render_form}}
       <button class="btn btn-primary">Submit</button>
     </form>
   </div>
