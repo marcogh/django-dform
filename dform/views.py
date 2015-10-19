@@ -1,10 +1,12 @@
 import json, logging
 from collections import OrderedDict
 
+from django.conf import settings
 from django.contrib.admin.views.decorators import staff_member_required
 from django.core.urlresolvers import reverse
 from django.http import HttpResponse, HttpResponseRedirect, Http404
 from django.shortcuts import get_object_or_404
+from django.template import Context, Template
 
 from awl.decorators import post_required
 from awl.utils import render_page
@@ -95,9 +97,25 @@ def sample_survey(request, survey_version_id):
 def survey(request, survey_version_id):
     version = get_object_or_404(SurveyVersion, id=survey_version_id)
 
-    if request.method == 'POST':
-        answer_group = AnswerGroup.objects.create(survey_version=version)
-        version.create_answers(request.POST)
-    else:
-        pass
+    try:
+        template = Template(settings.DFORM_SURVEY_SUBMIT)
+        context = Context({'survey_version':version})
+        submit_action = template.render(context)
+    except AttributeError:
+        submit_action = reverse('dform-survey', args=(version.id, ))
 
+    if request.method == 'POST':
+        form = SurveyForm(request.POST, survey_version=version)
+        if form.is_valid():
+            form.save()
+            return HttpResponseRedirect(version.on_success())
+    else:
+        form = SurveyForm(survey_version=version)
+
+    data = {
+        'survey_version':version,
+        'form':form,
+        'submit_action':submit_action,
+    }
+
+    return render_page(request, 'dform/survey.html', data)

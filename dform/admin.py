@@ -227,8 +227,8 @@ mixin.add_obj_link('show_version', 'survey_version',
 
 @admin.register(AnswerGroup)
 class AnswerGroupAdmin(admin.ModelAdmin, mixin):
-    list_display = ('id', 'show_version', 'show_data', 'show_questions',
-        'show_answers')
+    list_display = ('id', 'updated', 'show_version', 'show_data', 
+        'show_questions', 'show_answers')
 
     def show_questions(self, obj):
         return _questions_link(obj.survey_version, False)
@@ -246,8 +246,8 @@ class AnswerGroupAdmin(admin.ModelAdmin, mixin):
 
         link = reverse('admin:dform_answer_changelist')
 
-        url = '<a href="%s?survey_version__id=%s">%s Answer%s</a>' % (link,
-            obj.survey_version.id, num_a, plural)
+        url = '<a href="%s?answer_group__id=%s">%s Answer%s</a>' % (link,
+            obj.id, num_a, plural)
         return url
     show_answers.short_description = 'Answers'
     show_answers.allow_tags = True

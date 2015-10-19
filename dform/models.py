@@ -418,7 +418,7 @@ class Question(TimeTrackModel):
 
     text = models.TextField(blank=True)
     field_key = models.CharField(max_length=2, choices=FIELD_CHOICES)
-    field_parms = JSONField(default={}, 
+    field_parms = JSONField(default={}, blank=True,
         load_kwargs={'object_pairs_hook':collections.OrderedDict})
     required = models.BooleanField(default=False)
 

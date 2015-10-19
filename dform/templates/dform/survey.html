@@ -1,0 +1,20 @@
+{% extends "dform/base.html" %}
+{% block title %}{{survey_version.survey.name}}{% endblock title %}
+
+{% block contents %}
+<div class="row">
+  <div class="col-sm-8 col-sm-offset-2">
+    <h2>{{survey_version.survey.name}}</h2>
+  </div>
+</div>
+<br/>
+<div class="row">
+  <div class="col-sm-8 col-sm-offset-2">
+    <form method="post" action="{{submit_action}}">
+      {% csrf_token %}
+      {{form.render_form}}
+      <button class="btn btn-primary">Submit</button>
+    </form>
+  </div>
+</div>
+{% endblock contents %}

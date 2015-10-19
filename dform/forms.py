@@ -2,7 +2,8 @@
 from django import forms
 from django.template.loader import render_to_string
 
-from .fields import FIELDS_DICT, ChoiceField, Rating
+from .fields import FIELDS_DICT, ChoiceField, Rating, MultipleChoicesStorage
+from .models import AnswerGroup, Question
 
 # ============================================================================
 
@@ -62,3 +63,21 @@ class SurveyForm(forms.Form):
 
     def render_form(self):
         return render_to_string('dform/fields.html', {'form':self})
+
+    def save(self):
+        if not self.answer_group:
+            self.answer_group = AnswerGroup.objects.create(
+                survey_version=self.survey_version)
+
+        for name, field in self.fields.items():
+            question = Question.objects.get(id=name[2:], 
+                survey_versions=self.survey_version)
+
+            value = self.cleaned_data[name]
+            if question.field == Rating:
+                value = int(value)
+            elif issubclass(question.field, MultipleChoicesStorage):
+                value = ','.join(value)
+
+            self.survey_version.answer_question(question, self.answer_group, 
+                value)

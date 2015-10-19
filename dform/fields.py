@@ -104,7 +104,7 @@ class Radio(ChoiceField, ChoicesStorage):
 class Checkboxes(ChoiceField, MultipleChoicesStorage):
     field_key = 'ch'
     template = 'dform/fields/checkboxes.html'
-    django_field = fields.ChoiceField
+    django_field = fields.MultipleChoiceField
     django_widget = widgets.CheckboxSelectMultiple
     form_control = False
 
