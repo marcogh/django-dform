@@ -1,13 +1,15 @@
 {% for field in form %}
   <!-- 
     {{field}}
+    {{field.field.required}}
     {{field.field.question}}
     {{field.field.question.field}}
     {{field.field.question.field.field_key}}
   -->
 
-<div class="form-group {% if field.errors %}has-error{% endif %}">
-  <label for="{{field.id}}">{{field.field.question.text}}</label>
+<div class="form-group {% if field.errors %}has-error{% endif %} {% if field.field.required %}required{% endif %}">
+  <label for="{{field.id}}" class="control-label"
+    >{{field.field.question.text}}</label>
   {% if field.field.question.field.field_key == 'rd' %}
       {% for choice in field %}
         <div class="radio">

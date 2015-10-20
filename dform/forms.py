@@ -81,3 +81,10 @@ class SurveyForm(forms.Form):
 
             self.survey_version.answer_question(question, self.answer_group, 
                 value)
+
+    def has_required(self):
+        for field in self.fields.values():
+            if field.required:
+                return True
+
+        return False

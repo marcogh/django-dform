@@ -13,6 +13,11 @@
     <form method="post" action="{{submit_action}}">
       {% csrf_token %}
       {{form.render_form}}
+      {% if form.has_required %}
+        <div class="form-group required-info">
+          <span class="required-mark">*</span> Required Field
+        </div>
+      {% endif %}
       <button class="btn btn-primary">Submit</button>
     </form>
   </div>
