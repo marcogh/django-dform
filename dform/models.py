@@ -509,7 +509,14 @@ class Answer(TimeTrackModel):
             'question':question,
         }
         kwargs[question.field.storage_key] = value
-        return Answer.objects.create(**kwargs)
+        
+        try:
+            answer = Answer.objects.get(question=question,
+                answer_group=answer_group)
+            setattr(answer, question.field.storage_key, value)
+            answer.save()
+        except Answer.DoesNotExist:
+            return Answer.objects.create(**kwargs)
 
     @property
     def value(self):

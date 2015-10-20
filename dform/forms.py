@@ -18,15 +18,25 @@ class SurveyForm(forms.Form):
 
         super(SurveyForm, self).__init__(*args, **kwargs)
 
-        if len(args) > 0:
-            post = args[0]
-        else:
-            post = {}
+        # populate any answers from the database
+        values = {}
+        if self.answer_group:
+            for answer in self.answer_group.answer_set.all():
+                key = 'q_%s' % answer.question.id
+                if isinstance(answer.question.field, MultipleChoicesStorage):
+                    values[key] = answer.value.split(',')
+                else:
+                    values[key] = answer.value
 
-        self.populate_fields(post)
+        # update values with info from a POST if passed in
+        if len(args) > 0:
+            values.update(args[0])
+
+        self.populate_fields(values)
 
     def populate_fields(self, values):
         for question in self.survey_version.questions():
+            print('****', question)
             name = 'q_%s' % question.id
 
             kwargs = {
@@ -36,6 +46,7 @@ class SurveyForm(forms.Form):
 
             if name in values:
                 kwargs['initial'] = values[name]
+                print('  ->', values[name])
 
             if question.field.django_widget:
                 kwargs['widget'] = question.field.django_widget
@@ -48,6 +59,8 @@ class SurveyForm(forms.Form):
                     (2, '2 Star'),
                     (1, '1 Star'),
                 )
+                if name in values:
+                    kwargs['initial'] = int(values[name])
             elif issubclass(question.field, ChoiceField):
                 kwargs['choices'] = question.field_choices()
 

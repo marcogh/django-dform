@@ -1,5 +1,6 @@
 import json, logging
 from collections import OrderedDict
+from functools import wraps
 
 from django.conf import settings
 from django.contrib.admin.views.decorators import staff_member_required
@@ -10,13 +11,29 @@ from django.template import Context, Template
 
 from awl.decorators import post_required
 from awl.utils import render_page
+from wrench.utils import dynamic_load
 
 from .fields import FIELDS_DICT
 from .forms import SurveyForm
 from .models import (EditNotAllowedException, Survey, SurveyVersion, Question,
-    QuestionOrder)
+    QuestionOrder, AnswerGroup)
 
 logger = logging.getLogger(__name__)
+
+# ============================================================================
+# Security Decorator
+# ============================================================================
+
+def permission_hook(target):
+    @wraps(target)
+    def wrapper(*args, **kwargs):
+        if hasattr(settings, 'DFORM_PERMISSION_HOOK'):
+            fn = dynamic_load(settings.DFORM_PERMISSION_HOOK)
+            fn(target.__name__, *args, **kwargs)
+
+        # everything verified, run the view
+        return target(*args, **kwargs)
+    return wrapper
 
 # ============================================================================
 # AJAX Methods 
@@ -78,6 +95,7 @@ def new_version(request, survey_id):
 # Form Views
 # ============================================================================
 
+@permission_hook
 def sample_survey(request, survey_version_id):
     """A view for displaying a sample version of a form.  The submit mechanism
     does nothing.
@@ -98,6 +116,7 @@ def sample_survey(request, survey_version_id):
     return render_page(request, 'dform/survey.html', data)
 
 
+@permission_hook
 def survey(request, survey_version_id):
     version = get_object_or_404(SurveyVersion, id=survey_version_id)
 
@@ -119,6 +138,42 @@ def survey(request, survey_version_id):
     data = {
         'title':version.survey.name,
         'survey_version':version,
+        'form':form,
+        'submit_action':submit_action,
+    }
+
+    return render_page(request, 'dform/survey.html', data)
+
+
+@permission_hook
+def survey_with_answers(request, survey_version_id, answer_group_id):
+    version = get_object_or_404(SurveyVersion, id=survey_version_id)
+    answer_group = get_object_or_404(AnswerGroup, id=answer_group_id)
+
+    try:
+        template = Template(settings.DFORM_SURVEY_WITH_ANSWERS_SUBMIT)
+        context = Context({
+            'survey_version':version, 
+            'answer_group':answer_group
+        })
+        submit_action = template.render(context)
+    except AttributeError:
+        submit_action = reverse('dform-survey-with-answers', args=(
+            version.id, answer_group.id))
+
+    if request.method == 'POST':
+        form = SurveyForm(request.POST, survey_version=version,
+            answer_group=answer_group)
+        if form.is_valid():
+            form.save()
+            return HttpResponseRedirect(version.on_success())
+    else:
+        form = SurveyForm(survey_version=version, answer_group=answer_group)
+
+    data = {
+        'title':version.survey.name,
+        'survey_version':version,
+        'answer_group':answer_group,
         'form':form,
         'submit_action':submit_action,
     }

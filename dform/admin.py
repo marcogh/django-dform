@@ -78,7 +78,14 @@ class SurveyAdmin(admin.ModelAdmin):
             url = reverse('dform-sample-survey', args=(obj.latest_version.id,))
             actions.append('<a href="%s">View Sample</a>' % url)
         except NoReverseMatch:
-            # view sample isn't guaranteed to be there
+            # sample-survey view isn't guaranteed to be there
+            pass
+
+        try:
+            url = reverse('dform-survey', args=(obj.latest_version.id,))
+            actions.append('<a href="%s">Answer Survey</a>' % url)
+        except NoReverseMatch:
+            # survey view isn't guaranteed to be there
             pass
 
         return ', '.join(actions)
@@ -125,6 +132,13 @@ class SurveyVersionAdmin(admin.ModelAdmin, mixin):
             actions.append('<a href="%s">View Sample</a>' % url)
         except NoReverseMatch:
             # view sample isn't guaranteed to be there
+            pass
+
+        try:
+            url = reverse('dform-survey', args=(obj.id,))
+            actions.append('<a href="%s">Answer Survey</a>' % url)
+        except NoReverseMatch:
+            # survey view isn't guaranteed to be there
             pass
 
         return ', '.join(actions)
@@ -224,11 +238,10 @@ mixin.add_obj_link('show_data', 'group_data')
 mixin.add_obj_link('show_version', 'survey_version',
     display='SurveyVersion.id={{obj.id}}')
 
-
 @admin.register(AnswerGroup)
 class AnswerGroupAdmin(admin.ModelAdmin, mixin):
     list_display = ('id', 'updated', 'show_version', 'show_data', 
-        'show_questions', 'show_answers')
+        'show_questions', 'show_answers', 'show_actions')
 
     def show_questions(self, obj):
         return _questions_link(obj.survey_version, False)
@@ -251,3 +264,14 @@ class AnswerGroupAdmin(admin.ModelAdmin, mixin):
         return url
     show_answers.short_description = 'Answers'
     show_answers.allow_tags = True
+
+    def show_actions(self, obj):
+        try:
+            url = reverse('dform-survey-with-answers', args=(
+                obj.survey_version.id, obj.id))
+            return '<a href="%s">Change Answers</a>' % url
+        except NoReverseMatch:
+            # view survey-with-answers isn't guaranteed to be there
+            return ''
+    show_actions.short_description = 'Actions'
+    show_actions.allow_tags = True
