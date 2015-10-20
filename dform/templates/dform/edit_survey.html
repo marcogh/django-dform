@@ -53,6 +53,8 @@ body {
                   <a href="#" class="add-q" data-field="ch">Checkboxes</a>
                 </li>
                 <li><a href="#" class="add-q" data-field="rt">Rating</a></li>
+                <li><a href="#" class="add-q" data-field="in">Integer</a></li>
+                <li><a href="#" class="add-q" data-field="fl">Float</a></li>
               </ul>
             </li>
           </ul>
@@ -287,6 +289,12 @@ function add_question(q_id, q_type, q_text, required, parms) {
       break;
     case 'rt':
       html = question_body(q_id, q_type, 'Rating', q_text, required);
+      break;
+    case 'in':
+      html = question_body(q_id, q_type, 'Integer', q_text, required);
+      break;
+    case 'fl':
+      html = question_body(q_id, q_type, 'Float', q_text, required);
       break;
   }
 

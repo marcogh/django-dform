@@ -1,5 +1,6 @@
 # dform.fields.py
 import logging
+from six import with_metaclass
 
 from django.core.exceptions import ValidationError
 from django.forms import fields
@@ -7,9 +8,20 @@ from django.forms import widgets
 
 logger = logging.getLogger(__name__)
 
+FIELDS = []
+
 # ============================================================================
 
-class Field(object):
+class MetaField(type):
+    def __new__(cls, name, bases, classdict):
+        global FIELDS
+        klass = type.__new__(cls, name, bases, dict(classdict))
+        if klass.__name__ not in ['Field', 'ChoiceField']:
+            FIELDS.append(klass)
+        return klass
+
+
+class Field(with_metaclass(MetaField)):
     django_widget = ''
     form_control = True
 
@@ -59,7 +71,18 @@ class MultipleChoicesStorage(object):
                 raise ValidationError('value was not in available choices')
 
 
-class NumberStorage(object):
+class IntegerStorage(object):
+    storage_key = 'answer_int'
+
+    @classmethod
+    def check_value(cls, field_parms, value):
+        try:
+            int(value)
+        except ValueError:
+            raise ValidationError('value was not an integer')
+
+
+class FloatStorage(object):
     storage_key = 'answer_float'
 
     @classmethod
@@ -67,7 +90,7 @@ class NumberStorage(object):
         try:
             float(value)
         except ValueError:
-            raise ValidationError('value was not numeric')
+            raise ValidationError('value was not a float')
 
 # ============================================================================
 # Field Types
@@ -75,27 +98,23 @@ class NumberStorage(object):
 
 class Text(Field, TextStorage):
     field_key = 'tx'
-    template = 'dform/fields/text.html'
     django_field = fields.CharField
 
 
 class MultiText(Field, TextStorage):
     field_key = 'mt'
-    template = 'dform/fields/multitext.html'
     django_field = fields.CharField
     django_widget = widgets.Textarea
 
 
 class Dropdown(ChoiceField, ChoicesStorage):
     field_key = 'dr'
-    template = 'dform/fields/dropdown.html'
     django_field = fields.ChoiceField
     django_widget = widgets.Select
 
 
 class Radio(ChoiceField, ChoicesStorage):
     field_key = 'rd'
-    template = 'dform/fields/radio.html'
     django_field = fields.ChoiceField
     django_widget = widgets.RadioSelect
     form_control = False
@@ -103,21 +122,28 @@ class Radio(ChoiceField, ChoicesStorage):
 
 class Checkboxes(ChoiceField, MultipleChoicesStorage):
     field_key = 'ch'
-    template = 'dform/fields/checkboxes.html'
     django_field = fields.MultipleChoiceField
     django_widget = widgets.CheckboxSelectMultiple
     form_control = False
 
 
-class Rating(Field, NumberStorage):
+class Rating(Field, IntegerStorage):
     field_key = 'rt'
-    template = 'dform/fields/rating.html'
     django_field = fields.ChoiceField
     django_widget = widgets.RadioSelect
 
+
+class Integer(Field, IntegerStorage):
+    field_key = 'in'
+    django_field = fields.IntegerField
+
+
+class Float(Field, FloatStorage):
+    field_key = 'fl'
+    django_field = fields.FloatField
+
 # ============================================================================
 
-FIELDS = [Text, MultiText, Dropdown, Radio, Checkboxes, Rating]
 FIELDS_DICT = {f.field_key:f for f in FIELDS}
 FIELD_CHOICES = [(f.field_key, f.__name__) for f in FIELDS]
 FIELD_CHOICES_DICT = dict(FIELD_CHOICES)

@@ -2,7 +2,8 @@
 from django import forms
 from django.template.loader import render_to_string
 
-from .fields import FIELDS_DICT, ChoiceField, Rating, MultipleChoicesStorage
+from .fields import (FIELDS_DICT, ChoiceField, Rating, MultipleChoicesStorage,
+    Integer, Float)
 from .models import AnswerGroup, Question
 
 # ============================================================================
@@ -36,7 +37,6 @@ class SurveyForm(forms.Form):
 
     def populate_fields(self, values):
         for question in self.survey_version.questions():
-            print('****', question)
             name = 'q_%s' % question.id
 
             kwargs = {
@@ -46,7 +46,6 @@ class SurveyForm(forms.Form):
 
             if name in values:
                 kwargs['initial'] = values[name]
-                print('  ->', values[name])
 
             if question.field.django_widget:
                 kwargs['widget'] = question.field.django_widget
@@ -59,8 +58,6 @@ class SurveyForm(forms.Form):
                     (2, '2 Star'),
                     (1, '1 Star'),
                 )
-                if name in values:
-                    kwargs['initial'] = int(values[name])
             elif issubclass(question.field, ChoiceField):
                 kwargs['choices'] = question.field_choices()
 
@@ -87,8 +84,13 @@ class SurveyForm(forms.Form):
                 survey_versions=self.survey_version)
 
             value = self.cleaned_data[name]
-            if question.field == Rating:
+            if not value and not question.required:
+                continue
+
+            if question.field in [Rating, Integer]:
                 value = int(value)
+            elif question.field == Float:
+                value = float(value)
             elif issubclass(question.field, MultipleChoicesStorage):
                 value = ','.join(value)
 

@@ -26,6 +26,10 @@ input.kv-value {
     width: 80% !important;
 }
 
+.container {
+    margin-bottom:20px;
+}
+
 .choices-well {
     margin-bottom:2px;
 }

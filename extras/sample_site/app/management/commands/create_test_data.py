@@ -4,7 +4,8 @@ from django.contrib.auth.models import User
 from django.core.management.base import BaseCommand
 
 from dform.models import Survey, AnswerGroup
-from dform.fields import Text, MultiText, Dropdown, Radio, Checkboxes, Rating
+from dform.fields import (Text, MultiText, Dropdown, Radio, Checkboxes,
+    Rating, Integer, Float)
 
 # =============================================================================
 
@@ -44,6 +45,9 @@ class Command(BaseCommand):
             field_parms=OrderedDict([('a','Audi'), ('b','BMW'), 
                 ('v','Volkswagon')]))
         survey.add_question(Rating, 'Rate our service')
+
+        survey.add_question(Integer, 'Pick an integer number')
+        survey.add_question(Float, 'Pick a float number')
 
         survey = Survey.objects.create(name='Favourites Survey', 
             success_redirect='/admin/')

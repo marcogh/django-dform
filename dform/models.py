@@ -495,6 +495,7 @@ class Answer(TimeTrackModel):
 
     answer_text = models.TextField(blank=True)
     answer_key = models.TextField(blank=True)
+    answer_int = models.IntegerField(null=True, blank=True)
     answer_float = models.FloatField(null=True, blank=True)
 
     def __str__(self):
