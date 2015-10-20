@@ -86,12 +86,16 @@ def sample_survey(request, survey_version_id):
         Id of a :class:`SurveyVersion` object
     """
     version = get_object_or_404(SurveyVersion, id=survey_version_id)
+
+    form = SurveyForm(survey_version=version)
     data = {
+        'title':'Sample: %s' % version.survey.name,
         'survey_version':version,
-        'form':SurveyForm(survey_version=version),
+        'form':form,
+        'submit_action':'',
     }
 
-    return render_page(request, 'dform/sample_survey.html', data)
+    return render_page(request, 'dform/survey.html', data)
 
 
 def survey(request, survey_version_id):
@@ -113,6 +117,7 @@ def survey(request, survey_version_id):
         form = SurveyForm(survey_version=version)
 
     data = {
+        'title':version.survey.name,
         'survey_version':version,
         'form':form,
         'submit_action':submit_action,
