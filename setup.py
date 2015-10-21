@@ -28,11 +28,16 @@ SETUP_ARGS = dict(
         'Topic :: Software Development :: Libraries :: Python Modules',
     ],
     keywords='django,form,survey',
+    test_suite="load_tests.get_suite",
     install_requires=[
         'Django>=1.8',
         'django-awl>=0.6.1',
         'wrench>=0.5.1',
+        'jsonfield>=1.0.3',
     ],
+    tests_require=[
+        'mock>=1.3.0',
+    ]
 )
 
 if __name__ == '__main__':
