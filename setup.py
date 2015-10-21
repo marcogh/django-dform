@@ -1,6 +1,6 @@
 import os
 
-VERSION = '0.2.0'
+VERSION = '0.3.0'
 
 readme = os.path.join(os.path.dirname(__file__), 'README.rst')
 long_description = open(readme).read()
@@ -22,7 +22,7 @@ SETUP_ARGS = dict(
         'Intended Audience :: Developers',
         'License :: OSI Approved :: MIT License',
         'Operating System :: OS Independent',
-        'Programming Language :: Python :: 3',
+        'Programming Language :: Python :: 2.7',
         'Programming Language :: Python :: 3.4',
         'Topic :: Software Development :: Libraries :: Application Frameworks',
         'Topic :: Software Development :: Libraries :: Python Modules',

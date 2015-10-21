@@ -1,3 +1,8 @@
+0.3
+===
+
+* finished tests, now supports python 2.7
+
 0.2
 ===
 
