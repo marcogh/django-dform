@@ -4,7 +4,7 @@ from django.template.loader import render_to_string
 
 from .fields import (FIELDS_DICT, ChoiceField, Rating, MultipleChoicesStorage,
     Integer, Float)
-from .models import AnswerGroup, Question
+from .models import Answer, AnswerGroup, Question
 
 # ============================================================================
 
@@ -24,10 +24,7 @@ class SurveyForm(forms.Form):
         if self.answer_group:
             for answer in self.answer_group.answer_set.all():
                 key = 'q_%s' % answer.question.id
-                if isinstance(answer.question.field, MultipleChoicesStorage):
-                    values[key] = answer.value.split(',')
-                else:
-                    values[key] = answer.value
+                values[key] = answer.value
 
         # update values with info from a POST if passed in
         if len(args) > 0:
@@ -64,10 +61,7 @@ class SurveyForm(forms.Form):
             field = question.field.django_field(**kwargs)
             field.question = question
             if question.field.form_control:
-                if 'class' in field.widget.attrs:
-                    field.widget.attrs['class'] += ' form-control'
-                else:
-                    field.widget.attrs['class'] = 'form-control'
+                field.widget.attrs['class'] = 'form-control'
 
             self.fields[name] = field
 
@@ -84,18 +78,27 @@ class SurveyForm(forms.Form):
                 survey_versions=self.survey_version)
 
             value = self.cleaned_data[name]
-            if not value and not question.required:
-                continue
+            if not value:
+                # value is empty, remove any existing answers and otherwise
+                # ignore it
+                try:
+                    # check for an existing Answer that should now be removed
+                    answer = Answer.objects.get(question=question,
+                        answer_group=self.answer_group)
+                    answer.delete()
+                except Answer.DoesNotExist:
+                    # no answer to remove, do nothing
+                    pass
+            else:
+                if question.field in [Rating, Integer]:
+                    value = int(value)
+                elif question.field == Float:
+                    value = float(value)
+                elif issubclass(question.field, MultipleChoicesStorage):
+                    value = ','.join(value)
 
-            if question.field in [Rating, Integer]:
-                value = int(value)
-            elif question.field == Float:
-                value = float(value)
-            elif issubclass(question.field, MultipleChoicesStorage):
-                value = ','.join(value)
-
-            self.survey_version.answer_question(question, self.answer_group, 
-                value)
+                self.survey_version.answer_question(question, 
+                    self.answer_group, value)
 
     def has_required(self):
         for field in self.fields.values():

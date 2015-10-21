@@ -1,6 +1,7 @@
 # dform.models.py
 import logging, collections
 
+from django.conf import settings
 from django.contrib.contenttypes.fields import GenericForeignKey
 from django.contrib.contenttypes.models import ContentType
 from django.db import models, transaction
@@ -23,11 +24,23 @@ logger = logging.getLogger(__name__)
 # ============================================================================
 
 class EditNotAllowedException(Exception):
+    """Exception thrown if an attempt is made to edit a version of a survey
+    that currently has answers associated with it."""
     pass
 
 
 @python_2_unicode_compatible
 class Survey(TimeTrackModel):
+    """Main class that encapsulates a survey.  The actual questions are
+    associated with a version of the survey (:class:`SurveyVersion), this is a
+    container for all of the versions that are associated together.  The most
+    recent version is available in the :func:`Survey.latest_version` property.
+
+    .. note::
+
+        A :class:`SurveyVersion` object is created automatically via a signal
+        when a new instance of this class is saved.
+    """
     name = models.CharField(max_length=50)
     success_redirect = models.TextField()
 
@@ -147,7 +160,7 @@ class Survey(TimeTrackModel):
         the latest version of the survey.
 
         :param data:
-            Dictionary to overwrite the contents of the ``Survey` and
+            Dictionary to overwrite the contents of the ``Survey`` and
             associated :class:`Question` objects with.
         :raises EditNotAllowedException:
             If the version being replaced is active
@@ -167,6 +180,10 @@ def survey_post_save(sender, **kwargs):
 
 @python_2_unicode_compatible
 class SurveyVersion(TimeTrackModel):
+    """An container for questions and answers for a survey.  Multiple versions
+    can be associated with a single :class:`Survey` object, allowing reporting
+    over time even as questions change.
+    """
     survey = models.ForeignKey(Survey)
     version_num = models.PositiveSmallIntegerField(default=1)
     success_redirect = models.TextField(blank=True)
@@ -179,11 +196,18 @@ class SurveyVersion(TimeTrackModel):
         verbose_name = 'Survey Version'
 
     def validate_editable(self):
+        """Raises :class:`EditNotAllowedException` if there are
+        :class:`Answer` objects associated with this version.
+
+        :raises EditNotAllowedException:
+        """
         if Answer.objects.filter(
                 answer_group__survey_version=self).count() != 0:
             raise EditNotAllowedException()
 
     def is_editable(self):
+        """Returns ``True`` if there are no :class:`Answer` objects associated
+        with this version."""
         count = Answer.objects.filter(answer_group__survey_version=self).count()
         return count == 0
 
@@ -194,9 +218,18 @@ class SurveyVersion(TimeTrackModel):
         fields is processed as a django template with this survey version as
         context and the result is returned.
         """
-        redirect = self.survey.success_redirect
+        redirect = ''
+        if hasattr(settings, 'DFORM_SUCCESS_REDIRECT'):
+            redirect = settings.DFORM_SUCCESS_REDIRECT
+
+        if self.survey.success_redirect:
+            redirect = self.survey.success_redirect
+
         if self.success_redirect:
             redirect = self.success_redirect
+
+        if not redirect:
+            raise AttributeError('No successful redirection URL defined!')
 
         template = Template(redirect)
         context = Context({'survey_version':self})
@@ -352,7 +385,7 @@ class SurveyVersion(TimeTrackModel):
         from the ``Survey``.
 
         :param data:
-            Dictionary to overwrite the contents of the ``Survey` and
+            Dictionary to overwrite the contents of the ``Survey`` and
             associated :class:`Question` objects with.
         :raises EditNotAllowedException:
             If the version being replaced is active
@@ -413,6 +446,13 @@ class SurveyVersion(TimeTrackModel):
 
 @python_2_unicode_compatible
 class Question(TimeTrackModel):
+    """This class represents a question in the survey.  It may be associated
+    with multiple :class:`SurveyVersion` objects that are connected to the
+    same :class:`Survey`.
+
+    The prefered way of constructing this object is to use the
+    :func:`SurveyVersion.add_question` method.
+    """
     survey = models.ForeignKey(Survey)
     survey_versions = models.ManyToManyField(SurveyVersion)
 
@@ -428,9 +468,14 @@ class Question(TimeTrackModel):
 
     @property
     def field(self):
+        """Property that returns the :class:`Field` class for this
+        question."""
         return FIELDS_DICT[self.field_key]
 
     def field_choices(self):
+        """Returns a django-style "choices" tuple set based on the parameters
+        allowed for this field.
+        """
         choices = []
         for k, v in self.field_parms.items():
             choices.append((k, v))
@@ -447,15 +492,15 @@ class Question(TimeTrackModel):
 
         return text
 
-    def render(self):
-        data = {
-            'question':self,
-        }
-        return render_to_string(self.field.template, data)
-
 
 @python_2_unicode_compatible
 class QuestionOrder(TimeTrackModel, RankedModel):
+    """:class:`Question` objects need to be stored in consistent order in a
+    :class:`SurveyVersion`, this class tracks their ordering within a
+    :class:`SurveyVersion`.  This is treated as a separated object from the
+    :class:`Question` itself so that the same questions can have different
+    orders in different versions.
+    """
     survey_version = models.ForeignKey(SurveyVersion)
     question = models.ForeignKey(Question)
 
@@ -475,6 +520,14 @@ class QuestionOrder(TimeTrackModel, RankedModel):
 
 @python_2_unicode_compatible
 class AnswerGroup(TimeTrackModel):
+    """Groups together a set of :class:`Answer` objects for a single response
+    to a :class:`SurveyVersion`.
+
+    :param group_data: a :class:`GenericForeignKey` that can be used to
+        associate the group of answers with some identifying piece of data,
+        for example the :class:`User` class of the respondent.  Can be left
+        blank.
+    """
     survey_version = models.ForeignKey(SurveyVersion)
 
     content_type = models.ForeignKey(ContentType, null=True, blank=True)
@@ -490,6 +543,12 @@ class AnswerGroup(TimeTrackModel):
 
 @python_2_unicode_compatible
 class Answer(TimeTrackModel):
+    """Stores a single answer to a :class:`Question` in a survey.  Uses sparse
+    storage for different data types.  
+
+    The prefered method of creating :class:`Answer` objects is to call
+    :func:`SurveyVersion.answer_question`
+    """
     question = models.ForeignKey(Question)
     answer_group = models.ForeignKey(AnswerGroup)
 
@@ -516,6 +575,7 @@ class Answer(TimeTrackModel):
                 answer_group=answer_group)
             setattr(answer, question.field.storage_key, value)
             answer.save()
+            return answer
         except Answer.DoesNotExist:
             return Answer.objects.create(**kwargs)
 

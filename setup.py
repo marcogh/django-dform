@@ -6,7 +6,7 @@ long_description = open(readme).read()
 
 SETUP_ARGS = dict(
     name='django-dform',
-    version='0.1.0',
+    version='0.2.0',
     description=('Django app for dynamic forms or surveys that can be '
         'injected in sites'),
     long_description=long_description,

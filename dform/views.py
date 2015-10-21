@@ -100,6 +100,8 @@ def sample_survey(request, survey_version_id):
     """A view for displaying a sample version of a form.  The submit mechanism
     does nothing.
 
+    URL name reference for this view: ``dform-sample-survey``
+
     :param survey_version_id:
         Id of a :class:`SurveyVersion` object
     """
@@ -118,6 +120,11 @@ def sample_survey(request, survey_version_id):
 
 @permission_hook
 def survey(request, survey_version_id):
+    """View for submitting the answers to a survey.
+
+    URL name reference for this view: ``dform-survey``
+
+    """
     version = get_object_or_404(SurveyVersion, id=survey_version_id)
 
     try:
@@ -147,6 +154,11 @@ def survey(request, survey_version_id):
 
 @permission_hook
 def survey_with_answers(request, survey_version_id, answer_group_id):
+    """View for viewing and changing the answers to a survey that already has
+    answers.
+
+    URL name reference for this view: ``dform-survey-with-answers``
+    """
     version = get_object_or_404(SurveyVersion, id=survey_version_id)
     answer_group = get_object_or_404(AnswerGroup, id=answer_group_id)
 
