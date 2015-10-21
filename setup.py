@@ -1,12 +1,13 @@
 import os
 
+VERSION = '0.2.0'
+
 readme = os.path.join(os.path.dirname(__file__), 'README.rst')
 long_description = open(readme).read()
 
-
 SETUP_ARGS = dict(
     name='django-dform',
-    version='0.2.0',
+    version=VERSION,
     description=('Django app for dynamic forms or surveys that can be '
         'injected in sites'),
     long_description=long_description,
