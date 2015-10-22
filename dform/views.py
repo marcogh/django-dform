@@ -13,10 +13,9 @@ from awl.decorators import post_required
 from awl.utils import render_page
 from wrench.utils import dynamic_load
 
-from .fields import FIELDS_DICT
 from .forms import SurveyForm
 from .models import (EditNotAllowedException, Survey, SurveyVersion, Question,
-    QuestionOrder, AnswerGroup)
+    AnswerGroup)
 
 logger = logging.getLogger(__name__)
 

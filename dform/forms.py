@@ -2,8 +2,8 @@
 from django import forms
 from django.template.loader import render_to_string
 
-from .fields import (FIELDS_DICT, ChoiceField, Rating, MultipleChoicesStorage,
-    Integer, Float)
+from .fields import (ChoiceField, Rating, MultipleChoicesStorage, Integer, 
+    Float)
 from .models import Answer, AnswerGroup, Question
 
 # ============================================================================

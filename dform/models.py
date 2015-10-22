@@ -8,7 +8,6 @@ from django.db import models, transaction
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 from django.template import Context, Template
-from django.template.loader import render_to_string
 from django.utils.encoding import python_2_unicode_compatible
 
 from jsonfield import JSONField

@@ -1,9 +1,9 @@
-import json, copy
+import json
 from collections import OrderedDict
 from django.core.exceptions import ValidationError
 from django.core.urlresolvers import reverse, NoReverseMatch
 from django.test import TestCase
-from mock import Mock, patch
+from mock import patch
 
 from awl.utils import refetch
 from awl.waelsteng import AdminToolsMixin
@@ -362,7 +362,7 @@ class AdminTestCase(TestCase, AdminToolsMixin):
         url, text = parse_link(link)
         self.assertEqual('New Version', text)
 
-        response = self.authed_get(url, response_code=302)
+        self.authed_get(url, response_code=302)
 
     def test_survey_admin(self):
         self.initiate()
@@ -508,7 +508,7 @@ class AdminTestCase(TestCase, AdminToolsMixin):
         version = survey.latest_version
 
         q1 = survey.add_question(Text, '1st question')
-        q2 = survey.add_question(Text, '2nd question')
+        survey.add_question(Text, '2nd question')
 
         # -- show_reorder
         url = '/admin/dform/questionorder/?survey_version__id=%s' % version.id
@@ -556,7 +556,6 @@ class AdminTestCase(TestCase, AdminToolsMixin):
     def test_answer(self):
         self.initiate()
 
-        answer_admin = AnswerAdmin(Answer, self.site)
         answer_group_admin = AnswerGroupAdmin(AnswerGroup, self.site)
 
         survey = Survey.objects.create(name='survey')
@@ -581,13 +580,13 @@ class AdminTestCase(TestCase, AdminToolsMixin):
         self.assertEqual('2 Questions', text)
 
         # add an answer and check for change
-        answer = survey.answer_question(q1, ag1, 'stuff')
+        survey.answer_question(q1, ag1, 'stuff')
         html = self.field_value(answer_group_admin, ag1, 'show_answers')
         url, text = parse_link(html)
         self.assertEqual('1 Answer', text)
 
         # add another answer
-        answer = survey.answer_question(q2, ag1, 'stuff')
+        survey.answer_question(q2, ag1, 'stuff')
         html = self.field_value(answer_group_admin, ag1, 'show_answers')
         url, text = parse_link(html)
         self.assertEqual('2 Answers', text)
@@ -615,7 +614,7 @@ class SurveyAdminViewTests(TestCase, AdminToolsMixin):
             }],
         }
 
-        response = self.authed_post('/dform_admin/survey_delta/0/',
+        self.authed_post('/dform_admin/survey_delta/0/',
             data={'delta':json.dumps(expected)})
 
         expected['questions'][0]['id'] = Question.objects.last().id
@@ -634,9 +633,9 @@ class SurveyAdminViewTests(TestCase, AdminToolsMixin):
             }]
         }
 
-        response = self.authed_post(
-            '/dform_admin/survey_delta/%s/' % survey2.latest_version.id, 
-            response_code=404, data={'delta':json.dumps(delta)})
+        self.authed_post('/dform_admin/survey_delta/%s/' % (
+            survey2.latest_version.id), response_code=404, 
+            data={'delta':json.dumps(delta)})
 
         # -- verify error conditions for bad question ids
         last_question = Question.objects.all().order_by('id').last()
@@ -646,18 +645,18 @@ class SurveyAdminViewTests(TestCase, AdminToolsMixin):
             }]
         }
 
-        response = self.authed_post(
-            '/dform_admin/survey_delta/%s/' % survey.latest_version.id, 
-            response_code=404, data={'delta':json.dumps(delta)})
+        self.authed_post('/dform_admin/survey_delta/%s/' % (
+            survey.latest_version.id), response_code=404, 
+            data={'delta':json.dumps(delta)})
 
         # try remove
         delta = {
             'remove':[last_question.id + 10, ],
         }
 
-        response = self.authed_post(
-            '/dform_admin/survey_delta/%s/' % survey.latest_version.id, 
-            response_code=404, data={'delta':json.dumps(delta)})
+        self.authed_post('/dform_admin/survey_delta/%s/' % (
+            survey.latest_version.id), response_code=404, 
+            data={'delta':json.dumps(delta)})
 
         # -- verify disallowed editing
         ag = AnswerGroup.objects.create(survey_version=survey.latest_version)
@@ -666,9 +665,9 @@ class SurveyAdminViewTests(TestCase, AdminToolsMixin):
             'name':'Foo',
         }
 
-        response = self.authed_post(
-            '/dform_admin/survey_delta/%s/' % survey.latest_version.id, 
-            response_code=404, data={'delta':json.dumps(delta)})
+        self.authed_post('/dform_admin/survey_delta/%s/' % (
+            survey.latest_version.id), response_code=404, 
+            data={'delta':json.dumps(delta)})
 
     def test_survey_edit(self):
         # Only does rudimentary execution tests, doesn't test the actual 
