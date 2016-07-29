@@ -55,20 +55,19 @@ class Command(BaseCommand):
         
         # generate some answers
         for colour in colours:
-            group = AnswerGroup.objects.create(
-                survey_version=survey.latest_version)
+            group = AnswerGroup.factory(survey_version=survey.latest_version)
             survey.answer_question(q, group, colour)
 
         survey.new_version()
         q2 = survey.add_question(Text, 
             'What is your favourite way of spelling "favourite"?')
 
-        group = AnswerGroup.objects.create(survey_version=survey.latest_version)
+        group = AnswerGroup.factory(survey_version=survey.latest_version)
         survey.answer_question(q, group, colour[0])
         survey.answer_question(q2, group, 'favourite')
 
         user = User.objects.first()
-        group = AnswerGroup.objects.create(survey_version=survey.latest_version,
+        group = AnswerGroup.factory(survey_version=survey.latest_version,
             group_data=user)
         survey.answer_question(q, group, colour[1])
         survey.answer_question(q2, group, 'with the "u"')

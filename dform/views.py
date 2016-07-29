@@ -44,7 +44,7 @@ def survey_delta(request, survey_version_id):
     delta = json.loads(request.POST['delta'], object_pairs_hook=OrderedDict)
     if survey_version_id == '0':
         # new survey
-        survey = Survey.objects.create(name=delta['name'])
+        survey = Survey.factory(name=delta['name'])
         version = survey.latest_version
     else:
         version = get_object_or_404(SurveyVersion, id=survey_version_id)
@@ -64,7 +64,7 @@ def survey_delta(request, survey_version_id):
 def survey_editor(request, survey_version_id):
     if survey_version_id == '0':
         # new survey
-        survey = Survey.objects.create(name='New Survey')
+        survey = Survey.factory(name='New Survey')
         version = survey.latest_version
     else:
         version = get_object_or_404(SurveyVersion, id=survey_version_id)
@@ -118,20 +118,22 @@ def sample_survey(request, survey_version_id):
 
 
 @permission_hook
-def survey(request, survey_version_id):
+def survey(request, survey_version_id, token):
     """View for submitting the answers to a survey.
 
     URL name reference for this view: ``dform-survey``
 
     """
-    version = get_object_or_404(SurveyVersion, id=survey_version_id)
+    version = get_object_or_404(SurveyVersion, id=survey_version_id,
+        survey__token=token)
 
     try:
         template = Template(settings.DFORM_SURVEY_SUBMIT)
         context = Context({'survey_version':version})
         submit_action = template.render(context)
     except AttributeError:
-        submit_action = reverse('dform-survey', args=(version.id, ))
+        submit_action = reverse('dform-survey', args=(version.id,
+            version.survey.token))
 
     if request.method == 'POST':
         form = SurveyForm(request.POST, survey_version=version)
@@ -152,14 +154,17 @@ def survey(request, survey_version_id):
 
 
 @permission_hook
-def survey_with_answers(request, survey_version_id, answer_group_id):
+def survey_with_answers(request, survey_version_id, survey_token, 
+        answer_group_id, answer_token):
     """View for viewing and changing the answers to a survey that already has
     answers.
 
     URL name reference for this view: ``dform-survey-with-answers``
     """
-    version = get_object_or_404(SurveyVersion, id=survey_version_id)
-    answer_group = get_object_or_404(AnswerGroup, id=answer_group_id)
+    version = get_object_or_404(SurveyVersion, id=survey_version_id, 
+        survey__token=survey_token)
+    answer_group = get_object_or_404(AnswerGroup, id=answer_group_id,
+        token=answer_token)
 
     try:
         template = Template(settings.DFORM_SURVEY_WITH_ANSWERS_SUBMIT)
@@ -169,8 +174,8 @@ def survey_with_answers(request, survey_version_id, answer_group_id):
         })
         submit_action = template.render(context)
     except AttributeError:
-        submit_action = reverse('dform-survey-with-answers', args=(
-            version.id, answer_group.id))
+        submit_action = reverse('dform-survey-with-answers', args=(version.id, 
+            version.survey.token, answer_group.id, answer_group.token))
 
     if request.method == 'POST':
         form = SurveyForm(request.POST, survey_version=version,

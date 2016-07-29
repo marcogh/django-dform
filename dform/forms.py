@@ -70,7 +70,7 @@ class SurveyForm(forms.Form):
 
     def save(self):
         if not self.answer_group:
-            self.answer_group = AnswerGroup.objects.create(
+            self.answer_group = AnswerGroup.factory(
                 survey_version=self.survey_version)
 
         for name, field in self.fields.items():

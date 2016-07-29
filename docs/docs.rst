@@ -4,14 +4,13 @@ Configuration
 Permission Hook
 ===============
 
-Out-of-the-box, DForm comes with two sets of URL files.  This is done to split
-up the admin-only views that are used for creating and editing surveys, and
-the views provided for submitting surveys.  Depending on your usage patterns
-and security concerns you may not want to include all of the URLs in the
-second set of views.
+Out-of-the-box, DForm comes with two sets of URL files: one for the admin URLs
+and one for the public URLs.  The admin URLs are for creating and editing
+survey and require the user to be a member of staff of admin.
 
-Each of the submission views has a built in permissions hook.  This allows you
-to define a function that is called for each call to the submission views.
+As you may not want just anyone submitting or modifying survey answers, the
+public facing URLs come with a permission hook.  This hook allows you to
+define a function that is called for each call to the submission views.
 
 In your ``settings.py`` file:
 

@@ -1,6 +1,10 @@
 {% extends "dform/base.html" %}
 {% block title %}{{title}}{% endblock title %}
 
+{% block extra_head %}
+<script type="text/javascript" src="/static/dform/js/pym.min.js"></script>
+{% endblock extra_head %}
+
 {% block contents %}
 <div class="row">
   <div class="col-sm-8 col-sm-offset-2">
@@ -22,4 +26,7 @@
     </form>
   </div>
 </div>
+<script>
+  var child = new pym.Child();
+</script>
 {% endblock contents %}

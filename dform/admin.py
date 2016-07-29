@@ -82,7 +82,8 @@ class SurveyAdmin(admin.ModelAdmin):
             pass
 
         try:
-            url = reverse('dform-survey', args=(obj.latest_version.id,))
+            url = reverse('dform-survey', args=(obj.latest_version.id,
+                obj.token))
             actions.append('<a href="%s">Answer Survey</a>' % url)
         except NoReverseMatch:
             # survey view isn't guaranteed to be there
@@ -135,7 +136,7 @@ class SurveyVersionAdmin(admin.ModelAdmin, mixin):
             pass
 
         try:
-            url = reverse('dform-survey', args=(obj.id,))
+            url = reverse('dform-survey', args=(obj.id, obj.survey.token))
             actions.append('<a href="%s">Answer Survey</a>' % url)
         except NoReverseMatch:
             # survey view isn't guaranteed to be there
@@ -268,7 +269,8 @@ class AnswerGroupAdmin(admin.ModelAdmin, mixin):
     def show_actions(self, obj):
         try:
             url = reverse('dform-survey-with-answers', args=(
-                obj.survey_version.id, obj.id))
+                obj.survey_version.id, obj.survey_version.survey.token, obj.id,
+                obj.token))
             return '<a href="%s">Change Answers</a>' % url
         except NoReverseMatch:
             # view survey-with-answers isn't guaranteed to be there

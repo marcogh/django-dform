@@ -1,5 +1,5 @@
 # dform.models.py
-import logging, collections
+import logging, collections, random
 
 from django.conf import settings
 from django.contrib.contenttypes.fields import GenericForeignKey
@@ -22,6 +22,13 @@ logger = logging.getLogger(__name__)
 # Survey Management
 # ============================================================================
 
+def _generate_token(min_size=25, max_size=40):
+    alphabet = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ'
+    size = random.randint(min_size, max_size)
+    token = ''.join(random.choice(alphabet) for _ in range(size))
+    return token
+
+
 class EditNotAllowedException(Exception):
     """Exception thrown if an attempt is made to edit a version of a survey
     that currently has answers associated with it."""
@@ -41,10 +48,24 @@ class Survey(TimeTrackModel):
         when a new instance of this class is saved.
     """
     name = models.CharField(max_length=50)
+    token = models.CharField(max_length=40)
     success_redirect = models.TextField()
 
     def __str__(self):
         return 'Survey(id=%s %s)' % (self.id, self.name)
+
+    @classmethod
+    def factory(cls, name, success_redirect=''):
+        """Creates a survey, automatically generating a random token
+
+        :param name:
+            Name for the Survey
+
+        :returns:
+            Newly created Survey object 
+        """
+        return Survey.objects.create(name=name, token=_generate_token(),
+            success_redirect=success_redirect)
 
     @transaction.atomic
     def new_version(self):
@@ -528,6 +549,7 @@ class AnswerGroup(TimeTrackModel):
         blank.
     """
     survey_version = models.ForeignKey(SurveyVersion)
+    token = models.CharField(max_length=40)
 
     content_type = models.ForeignKey(ContentType, null=True, blank=True)
     object_id = models.PositiveIntegerField(default=0)
@@ -535,6 +557,27 @@ class AnswerGroup(TimeTrackModel):
 
     class Meta:
         verbose_name = 'Answer Group'
+
+    @classmethod
+    def factory(self, survey_version, group_data=None):
+        """Returns a new AnswerGroup object with a random token.
+
+        :param survey_version:
+            :class:`SurveyVersion` object that provides the questions for 
+            this :class:`AnswerGroup`
+        :param group_data:
+            Optional object to be associated with the new :class:`AnswerGroup`
+            instance
+
+        :returns:
+            Newly created :class:`AnswerGroup` instance
+        """
+        if group_data:
+            return AnswerGroup.objects.create(survey_version=survey_version, 
+                token=_generate_token(), group_data=group_data)
+        else:
+            return AnswerGroup.objects.create(survey_version=survey_version, 
+                token=_generate_token())
 
     def __str__(self):
         return 'AnswerGroup(id=%s data=%s)' % (self.id, self.group_data)
