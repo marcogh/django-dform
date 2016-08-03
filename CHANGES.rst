@@ -1,6 +1,12 @@
-?
+0.5
 ===
 
+* changed over survey links to now use a dedicated token, not secure but helps
+    prevent cross survey guessing based on the URL
+* added admin pages for showing sample HTML to paste into your web pages to
+    link to or embed a survey
+* added use of pym.js to handle responsive pages when doing a embedded IFRAME
+    inclusion of a form
 * removed a bunch of unused imports
 
 0.3
