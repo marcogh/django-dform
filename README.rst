@@ -58,4 +58,4 @@ in ``extras/sample_site``
 Docs
 ====
 
-Docs available at: http://django-dform.readthedocs.org/en/latest/
+Docs available at: http://django-dform.readthedocs.io/en/latest/
