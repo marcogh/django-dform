@@ -2,7 +2,9 @@
 {% block title %}{{title}}{% endblock title %}
 
 {% block extra_head %}
-<script type="text/javascript" src="/static/dform/js/pym.min.js"></script>
+{% if is_embedded %}
+  <script type="text/javascript" src="/static/dform/js/pym.min.js"></script>
+{% endif %}
 {% endblock extra_head %}
 
 {% block contents %}
@@ -26,7 +28,11 @@
     </form>
   </div>
 </div>
+
+{% if is_embedded %}
 <script>
   var child = new pym.Child();
 </script>
+{% endif %}
+
 {% endblock contents %}

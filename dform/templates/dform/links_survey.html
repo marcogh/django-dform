@@ -1,0 +1,41 @@
+{% extends "dform/base.html" %}
+{% load staticfiles %}
+{% block title %}{{title}}{% endblock title %}
+
+{% block contents %}
+<div class="row">
+  <div class="col-sm-8 col-sm-offset-2">
+    <h2>{{title}}</h2>
+
+    <h3>Link to Survey</h3>
+    <p>
+      The following is a link to a stand-alone survey page.
+    </p>
+<pre>
+&lt;a href="{{survey_url}}"&gt;{{version.survey.name}}&lt;/a&gt;
+</pre>
+
+
+    <h3>Embed Survey in IFRAME</h3>
+    <p>
+      If you wish to embed your survey on an existing web page, this can be
+      done using the 
+      <a target="_blank" href="http://blog.apps.npr.org/pym.js/">pym.js</a>
+      library and a IFRAME.  Copy the code below into the area where you wish
+      to insert the survey and pym.js will take care of the rest for you.
+
+    </p>
+
+<pre>
+&lt;div id="dform1"&gt;&lt;/div&gt;
+&lt;script type="text/javascript" src="{{pym_url}}"&gt;&lt;/script&gt;
+
+&lt;script&gt;
+  var p = new pym.Parent('dform1', '{{embedded_survey_url}}');
+&lt;/script&gt;
+</pre>
+
+  </div>
+</div>
+
+{% endblock contents %}

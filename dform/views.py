@@ -4,6 +4,7 @@ from functools import wraps
 
 from django.conf import settings
 from django.contrib.admin.views.decorators import staff_member_required
+from django.contrib.staticfiles.storage import staticfiles_storage
 from django.core.urlresolvers import reverse
 from django.http import HttpResponse, HttpResponseRedirect, Http404
 from django.shortcuts import get_object_or_404
@@ -35,7 +36,7 @@ def permission_hook(target):
     return wrapper
 
 # ============================================================================
-# AJAX Methods 
+# Admin Methods 
 # ============================================================================
 
 @staff_member_required
@@ -90,6 +91,53 @@ def new_version(request, survey_id):
     return_url = request.META.get('HTTP_REFERER', admin_link)
     return HttpResponseRedirect(return_url)
 
+
+@staff_member_required
+def survey_links(request, survey_version_id):
+    """Shows links and embedding code for pointing to this survey on an HTML
+    page.
+    """
+    version = get_object_or_404(SurveyVersion, id=survey_version_id)
+
+    survey_url = request.build_absolute_uri(
+        reverse('dform-survey', args=(version.id, version.survey.token)))
+    embedded_survey_url = request.build_absolute_uri(
+        reverse('dform-embedded-survey', args=(version.id, 
+        version.survey.token)))
+    pym_url = request.build_absolute_uri(
+        staticfiles_storage.url('dform/js/pym.min.js'))
+    
+    data = {
+        'title':'Links for: %s' % version.survey.name,
+        'survey_url':survey_url,
+        'embedded_survey_url':embedded_survey_url,
+        'pym_url':pym_url,
+        'version':version,
+    }
+
+    return render_page(request, 'dform/links_survey.html', data)
+
+
+@staff_member_required
+def answer_links(request, answer_group_id):
+    """Shows links and embedding code for pointing to this AnswerGroup on an 
+    HTML page so a user could edit their data.
+    """
+    answer_group = get_object_or_404(AnswerGroup, id=answer_group_id)
+    survey_url = request.build_absolute_uri(
+        reverse('dform-survey-with-answers', args=(
+            answer_group.survey_version.id, 
+            answer_group.survey_version.survey.token, answer_group.id, 
+            answer_group.token)))
+    
+    data = {
+        'title':'Answer Links for: %s' % (
+            answer_group.survey_version.survey.name),
+        'survey_url':survey_url,
+    }
+
+    return render_page(request, 'dform/links_answers.html', data)
+
 # ============================================================================
 # Form Views
 # ============================================================================
@@ -116,24 +164,14 @@ def sample_survey(request, survey_version_id):
 
     return render_page(request, 'dform/survey.html', data)
 
+# -------------------
 
-@permission_hook
-def survey(request, survey_version_id, token):
-    """View for submitting the answers to a survey.
-
-    URL name reference for this view: ``dform-survey``
-
+def _survey_view(request, survey_version_id, token, is_embedded):
+    """General view code for handling a survey, called by survey() or
+    embedded_survey()
     """
     version = get_object_or_404(SurveyVersion, id=survey_version_id,
         survey__token=token)
-
-    try:
-        template = Template(settings.DFORM_SURVEY_SUBMIT)
-        context = Context({'survey_version':version})
-        submit_action = template.render(context)
-    except AttributeError:
-        submit_action = reverse('dform-survey', args=(version.id,
-            version.survey.token))
 
     if request.method == 'POST':
         form = SurveyForm(request.POST, survey_version=version)
@@ -143,10 +181,90 @@ def survey(request, survey_version_id, token):
     else:
         form = SurveyForm(survey_version=version)
 
+    try:
+        # check if we have an alternate submit mechanism defined
+        template = Template(settings.DFORM_SURVEY_SUBMIT)
+        context = Context({'survey_version':version})
+        submit_action = template.render(context)
+    except AttributeError:
+        # use our default submit url
+        name = 'dform-embedded-survey' if is_embedded else 'dform-survey'
+        submit_action = reverse(name, args=(version.id, version.survey.token))
+
     data = {
         'title':version.survey.name,
         'survey_version':version,
         'form':form,
+        'is_embedded':is_embedded,
+        'submit_action':submit_action,
+    }
+
+    return render_page(request, 'dform/survey.html', data)
+
+
+@permission_hook
+def survey(request, survey_version_id, token):
+    """View for submitting the answers to a survey.
+
+    URL name reference for this view: ``dform-survey``
+
+    """
+    return _survey_view(request, survey_version_id, token, False)
+
+
+@permission_hook
+def embedded_survey(request, survey_version_id, token):
+    """View for submitting the answers to a survey with additional Javascript
+    handling for being embedded in an iframe.
+
+    URL name reference for this view: ``dform-survey``
+
+    """
+    return _survey_view(request, survey_version_id, token, True)
+
+#------------------
+
+def _survey_with_answers_view(request, survey_version_id, survey_token, 
+        answer_group_id, answer_token, is_embedded):
+    """General view code for editing answer for a survey.  Called by
+    survey_with_answers() and embedded_survey_with_answers()
+    """
+    version = get_object_or_404(SurveyVersion, id=survey_version_id, 
+        survey__token=survey_token)
+    answer_group = get_object_or_404(AnswerGroup, id=answer_group_id,
+        token=answer_token)
+
+    if request.method == 'POST':
+        form = SurveyForm(request.POST, survey_version=version,
+            answer_group=answer_group)
+        if form.is_valid():
+            form.save()
+            return HttpResponseRedirect(version.on_success())
+    else:
+        form = SurveyForm(survey_version=version, answer_group=answer_group)
+
+    try:
+        # check for alternate survey edit handler
+        template = Template(settings.DFORM_SURVEY_WITH_ANSWERS_SUBMIT)
+        context = Context({
+            'survey_version':version, 
+            'answer_group':answer_group
+        })
+        submit_action = template.render(context)
+    except AttributeError:
+        # use default survey edit handler
+        name = 'dform-survey-with-answers' if is_embedded else \
+            'dform-embedded-survey-with-answers' 
+
+        submit_action = reverse(name, args=(version.id, version.survey.token, 
+            answer_group.id, answer_group.token))
+
+    data = {
+        'title':version.survey.name,
+        'survey_version':version,
+        'answer_group':answer_group,
+        'form':form,
+        'is_embedded':is_embedded,
         'submit_action':submit_action,
     }
 
@@ -161,37 +279,17 @@ def survey_with_answers(request, survey_version_id, survey_token,
 
     URL name reference for this view: ``dform-survey-with-answers``
     """
-    version = get_object_or_404(SurveyVersion, id=survey_version_id, 
-        survey__token=survey_token)
-    answer_group = get_object_or_404(AnswerGroup, id=answer_group_id,
-        token=answer_token)
+    return _survey_with_answers_view(request, survey_version_id, survey_token,
+        answer_group_id, answer_token, False)
 
-    try:
-        template = Template(settings.DFORM_SURVEY_WITH_ANSWERS_SUBMIT)
-        context = Context({
-            'survey_version':version, 
-            'answer_group':answer_group
-        })
-        submit_action = template.render(context)
-    except AttributeError:
-        submit_action = reverse('dform-survey-with-answers', args=(version.id, 
-            version.survey.token, answer_group.id, answer_group.token))
 
-    if request.method == 'POST':
-        form = SurveyForm(request.POST, survey_version=version,
-            answer_group=answer_group)
-        if form.is_valid():
-            form.save()
-            return HttpResponseRedirect(version.on_success())
-    else:
-        form = SurveyForm(survey_version=version, answer_group=answer_group)
+@permission_hook
+def embedded_survey_with_answers(request, survey_version_id, survey_token, 
+        answer_group_id, answer_token):
+    """View for viewing and changing the answers to a survey that already has
+    answers with additional Javascript for being handled in an iframe.
 
-    data = {
-        'title':version.survey.name,
-        'survey_version':version,
-        'answer_group':answer_group,
-        'form':form,
-        'submit_action':submit_action,
-    }
-
-    return render_page(request, 'dform/survey.html', data)
+    URL name reference for this view: ``dform-survey-with-answers``
+    """
+    return _survey_with_answers_view(request, survey_version_id, survey_token,
+        answer_group_id, answer_token, True)

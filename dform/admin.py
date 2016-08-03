@@ -35,22 +35,6 @@ def _questions_link(version, show_reorder=True):
 
     return '&nbsp;|&nbsp'.join(urls)
 
-
-def _answers_link(version):
-    num_a = Answer.objects.filter(answer_group__survey_version=version).count()
-    if num_a == 0:
-        return ''
-
-    plural = ''
-    if num_a > 1:
-        plural = 's'
-
-    link = reverse('admin:dform_answer_changelist')
-
-    url = '<a href="%s?survey_version__id=%s">%s Answer%s</a>' % (link,
-        version.id, num_a, plural)
-    return url
-
 # ============================================================================
 # Surveys
 # ============================================================================
@@ -74,19 +58,18 @@ class SurveyAdmin(admin.ModelAdmin):
             url = reverse('dform-new-version', args=(obj.id,))
             actions.append('<a href="%s">New Version</a>' % url)
 
+        url = reverse('dform-survey-links', args=(obj.latest_version.id,))
+        actions.append('<a href="%s">Show Links</a>' % url)
+
         try:
             url = reverse('dform-sample-survey', args=(obj.latest_version.id,))
             actions.append('<a href="%s">View Sample</a>' % url)
-        except NoReverseMatch:
-            # sample-survey view isn't guaranteed to be there
-            pass
 
-        try:
             url = reverse('dform-survey', args=(obj.latest_version.id,
                 obj.token))
             actions.append('<a href="%s">Answer Survey</a>' % url)
         except NoReverseMatch:
-            # survey view isn't guaranteed to be there
+            # public URLs are in their own file and may not be included
             pass
 
         return ', '.join(actions)
@@ -105,12 +88,24 @@ class SurveyAdmin(admin.ModelAdmin):
 
     def show_questions(self, obj):
         return _questions_link(obj.latest_version)
-    show_questions.short_description = 'Questions'
+    show_questions.short_description = 'Current Questions'
     show_questions.allow_tags = True
 
     def show_answers(self, obj):
-        return _answers_link(obj.latest_version)
-    show_answers.short_description = 'Answers'
+        num_a = AnswerGroup.objects.filter(survey_version__survey=obj).count()
+        if num_a == 0:
+            return ''
+
+        plural = ''
+        if num_a > 1:
+            plural = 's'
+
+        link = reverse('admin:dform_answergroup_changelist')
+
+        u = '<a href="%s?survey_version__survey__id=%s">%s Answer Set%s</a>' % (
+            link, obj.id, num_a, plural)
+        return u
+    show_answers.short_description = 'All Answer Sets'
     show_answers.allow_tags = True
 
 
@@ -128,18 +123,17 @@ class SurveyVersionAdmin(admin.ModelAdmin, mixin):
             url = reverse('dform-edit-survey', args=(obj.id,))
             actions.append('<a href="%s">Edit Survey</a>' % url)
 
+        url = reverse('dform-survey-links', args=(obj.id,))
+        actions.append('<a href="%s">Show Links</a>' % url)
+
         try:
             url = reverse('dform-sample-survey', args=(obj.id,))
             actions.append('<a href="%s">View Sample</a>' % url)
-        except NoReverseMatch:
-            # view sample isn't guaranteed to be there
-            pass
 
-        try:
             url = reverse('dform-survey', args=(obj.id, obj.survey.token))
             actions.append('<a href="%s">Answer Survey</a>' % url)
         except NoReverseMatch:
-            # survey view isn't guaranteed to be there
+            # public URLs are in a different file and may not be there
             pass
 
         return ', '.join(actions)
@@ -152,8 +146,20 @@ class SurveyVersionAdmin(admin.ModelAdmin, mixin):
     show_questions.allow_tags = True
 
     def show_answers(self, obj):
-        return _answers_link(obj)
-    show_answers.short_description = 'Answers'
+        num_a = AnswerGroup.objects.filter(survey_version=obj).count()
+        if num_a == 0:
+            return ''
+
+        plural = ''
+        if num_a > 1:
+            plural = 's'
+
+        link = reverse('admin:dform_answergroup_changelist')
+
+        url = '<a href="%s?survey_version__id=%s">%s Answer Set%s</a>' % (link,
+            obj.id, num_a, plural)
+        return url
+    show_answers.short_description = 'Answer Sets'
     show_answers.allow_tags = True
 
 # ============================================================================
@@ -235,14 +241,21 @@ class AnswerAdmin(admin.ModelAdmin, mixin):
 
 
 mixin = make_admin_obj_mixin('AnswerGroupMixin')
-mixin.add_obj_link('show_data', 'group_data')
-mixin.add_obj_link('show_version', 'survey_version',
-    display='SurveyVersion.id={{obj.id}}')
+mixin.add_obj_link('show_data', 'group_data', 'Group Data')
+mixin.add_obj_link('show_version', 'survey_version', 'Survey Version',
+    display='{{obj.survey.name}} (v={{obj.id}})')
 
 @admin.register(AnswerGroup)
 class AnswerGroupAdmin(admin.ModelAdmin, mixin):
     list_display = ('id', 'updated', 'show_version', 'show_data', 
         'show_questions', 'show_answers', 'show_actions')
+
+    def lookup_allowed(self, key, value):
+        # enable cross FK lookups for this admin object
+        if key in ('survey_version__survey__id', ):
+            return True
+
+        return super(AnswerGroupAdmin, self).lookup_allowed(key, value)
 
     def show_questions(self, obj):
         return _questions_link(obj.survey_version, False)
@@ -267,13 +280,19 @@ class AnswerGroupAdmin(admin.ModelAdmin, mixin):
     show_answers.allow_tags = True
 
     def show_actions(self, obj):
+        actions = []
         try:
             url = reverse('dform-survey-with-answers', args=(
-                obj.survey_version.id, obj.survey_version.survey.token, obj.id,
-                obj.token))
-            return '<a href="%s">Change Answers</a>' % url
+                    obj.survey_version.id, obj.survey_version.survey.token, 
+                    obj.id, obj.token))
+            actions.append('<a href="%s">Change Answers</a>' % url)
+
+            url = reverse('dform-answer-links', args=(obj.id,))
+            actions.append('<a href="%s">Show Links</a>' % url)
         except NoReverseMatch:
-            # view survey-with-answers isn't guaranteed to be there
-            return ''
+            # views aren't guarnteed to be there
+            pass
+
+        return ', '.join(actions)
     show_actions.short_description = 'Actions'
     show_actions.allow_tags = True

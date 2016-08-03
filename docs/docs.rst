@@ -1,8 +1,51 @@
+Concepts
+********
+
+DForm is a survey creation and management tool.  It allows you to create
+surveys using Bootstrap 3 style forms, manage multiple versions of a survey
+and edit your answers.
+
+Everything in DForm revolves around a :class:`.Survey` object.  Each survey
+can have multiple versions associated, allowing you to edit your questions but
+still do queries across the edited versions.  When a :class:`.Survey` object
+is created, a corresponding :class:`.SurveyVersion` object is automatically
+generated.  
+
+Each :class:`.SurveyVersion` can have :class:`.Question` objects associated
+with it.  Questions are actually stored as two different objects in the
+database in order to allow for changing their order between versions.
+
+Answers to questions are grouped together using the :class:`.AnswerGroup`
+object.  These objects have a ``group_data`` property which is a
+:class:`GenericForeignKey` so if you warp the default views you can associate
+data in your system with the :class:`.AnswerGroup` -- this can be useful if
+you want to track the Django :class:`User` of the submitter or other metadata.
+
+:class:`Answer` objects have multiple storage types so that answer data can
+be stored natively in the database.  This allows you to write reports, do
+queries, or run aggregates using other tools.  This makes storage less than
+efficient, as each answer is going to have multiple empty fields.
+
+
 Configuration
 *************
 
+URL Hooks and Management
+========================
+
+DForm splits its URLs into two files: one for admin and one for public facing
+views.  The public facing views have no security mechanisms in place and so
+have been put into their own file in case you want to role your own.
+
+The public facing URLs do have tokens associated with them to prevent easy
+guessing of other survey URLs.
+
+There are two ways to create better security for the public facing URLs: use
+the `Permission Hook`_ mechanism or `Role Your Own Views`_.
+
+
 Permission Hook
-===============
+---------------
 
 Out-of-the-box, DForm comes with two sets of URL files: one for the admin URLs
 and one for the public URLs.  The admin URLs are for creating and editing
@@ -54,8 +97,32 @@ submission views.  If you do this and define the URLs with the appropriate
 names the admin links should still work.  See :doc:`views` for the URL name
 references for each of the views.
 
+
+Role your Own Views
+-------------------
+
+The DForm admin pages include links to the various actions you can perform on
+a survey.  As it is possible for you to create your own public facing survey
+views (for better security management), it is best if you use the reverse
+look-up names that the admin expects:
+
+dform-sample-survey
+    View to display a sample of the survey.  Doesn't not allow submitting
+    answers and the ``Submit`` button does nothing
+
+dform-survey
+    View to display (GET) and submit (POST) a survey 
+
+dform-survey-with-answers
+    View to display (GET) and submit (POST) a survey that has answers already
+
+dform-embedded-survey or dform-embedded-survey-with-answers
+    Variations on the survey display and posting that use ``pym.js`` to handle
+    responsive layouts when embedding the form in an iframe.
+
+
 Wrapping Survey Submission Views
---------------------------------
+================================
 
 The built-in survey submission views set the HTML form action attribute to
 themselves.  To change where the forms submit to add settings:
@@ -90,3 +157,17 @@ for settings.
 
 If none of these are set for a given survey version an :class:`.AttributeError`
 is raised.
+
+
+Using DForm in IFRAMEs
+**********************
+
+DForm includes the excellent library ``pym.js``
+(http://blog.apps.npr.org/pym.js/) to deal with the issues caused
+by responsive content in IFRAMEs.  There are two URLs for each of the survey
+and survey-with-answers calls that add the extra Javascript necessary to get
+responsive behaviour inside an IFRAME tag.
+
+Inside the admin pages for each survey, survey version and answer group you
+will find a "Show Links" action.  This will show a page that gives examples of
+how to include the URLs for the selected survey with and without embedding.

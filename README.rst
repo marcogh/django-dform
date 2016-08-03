@@ -28,7 +28,7 @@ in your ``urls.py`` file:
         url(r'dform_admin/', include('dform.admin_urls')), 
     )
 
-See the documentation for more information no using the permission hook or
+See the documentation for more information on using the permission hook or
 what views to wrap.
 
 Run:

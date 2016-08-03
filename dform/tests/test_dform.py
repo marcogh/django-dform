@@ -1,4 +1,4 @@
-import json
+import json, re
 from collections import OrderedDict
 from django.core.exceptions import ValidationError
 from django.core.urlresolvers import reverse, NoReverseMatch
@@ -22,6 +22,8 @@ from dform.forms import SurveyForm
 #def pprint(data):
 #    print(json.dumps(data, sort_keys=True, indent=4, separators=(',', ': ')))
 
+RE_PYM = re.compile('pym\.js')
+
 class GotHere(Exception):
     pass
 
@@ -30,24 +32,28 @@ def perm_hook(name, *args, **kwargs):
     raise GotHere()
 
 
-def sample_survey():
+def create_survey():
     # Creates and returns a survey and its questions
     survey = Survey.factory(name='survey')
 
     # add some questions
-    mt = survey.add_question(MultiText, 'multi')
-    tx = survey.add_question(Text, 'text value and stuff and things')
+    fields = OrderedDict()
+    fields['multitext'] = survey.add_question(MultiText, 'multi')
+    fields['text'] = survey.add_question(Text, 
+        'text value and stuff and things')
     o = OrderedDict([('a', 'Apple'), ('b', 'Bear')])
-    dr = survey.add_question(Dropdown, 'drop', field_parms=o)
+    fields['dropdown'] = survey.add_question(Dropdown, 'drop', 
+        field_parms=o)
     o = OrderedDict([('c', 'Chair'), ('d','Dog')])
-    rd = survey.add_question(Radio, 'radio', field_parms=o)
+    fields['radio'] = survey.add_question(Radio, 'radio', field_parms=o)
     o = OrderedDict([('e', 'Egg'), ('f', 'Fan')])
-    cb = survey.add_question(Checkboxes, 'check', field_parms=o) 
-    rt = survey.add_question(Rating, 'rating')
-    in_ = survey.add_question(Integer, 'integer')
-    fl = survey.add_question(Float, 'float')
+    fields['checkboxes'] = survey.add_question(Checkboxes, 'check', 
+        field_parms=o) 
+    fields['rating'] = survey.add_question(Rating, 'rating')
+    fields['integer'] = survey.add_question(Integer, 'integer')
+    fields['float'] = survey.add_question(Float, 'float')
 
-    return survey, mt, tx, dr, rd, cb, rt, in_, fl
+    return survey, fields
 
 # ============================================================================
 # Test Objects
@@ -55,14 +61,14 @@ def sample_survey():
 
 class SurveyTests(TestCase):
     def test_survey(self):
-        survey, mt, tx, dr, rd, cb, rt, in_, fl = sample_survey()
+        survey, fields = create_survey()
 
         # verify version created and correct value
         first_version = survey.latest_version
         self.assertEqual(first_version.version_num, 1)
 
         # verify order works
-        expected_q1 = [mt, tx, dr, rd, cb, rt, in_, fl]
+        expected_q1 = list(fields.values())
         for index, question in enumerate(survey.questions()):
             self.assertEqual(question, expected_q1[index])
 
@@ -84,14 +90,17 @@ class SurveyTests(TestCase):
             self.assertEqual(question, expected_q1[index])
 
         # change second version
-        survey.remove_question(rt)
-        tx2 = survey.add_question(Text, 'text 2', rank=1)
+        survey.remove_question(fields['rating'])
+        text2 = survey.add_question(Text, 'text 2', rank=1)
 
         # verify old and new versions are still have correct questions
         for index, question in enumerate(first_version.questions()):
             self.assertEqual(question, expected_q1[index])
 
-        expected_q2 = [tx2, mt, tx, dr, rd, cb, in_, fl]
+        # new expectation has text2 inserted at front and no ratings
+        expected_q2 = [text2, ] + list(fields.values())
+        del expected_q2[6]  # rating element
+
         for index, question in enumerate(survey.questions()):
             self.assertEqual(question, expected_q2[index])
 
@@ -101,11 +110,12 @@ class SurveyTests(TestCase):
         # -- test answers
         answer = 'answer and stuff and things'
         answer_group = AnswerGroup.factory(survey_version=first_version)
-        a1 = first_version.answer_question(tx, answer_group, answer)
+        a1 = first_version.answer_question(fields['text'], answer_group, answer)
         self.assertEqual(a1.value, answer)
 
         # answer same question again, ensure replacement
-        a2 = first_version.answer_question(tx, answer_group, 'something else')
+        a2 = first_version.answer_question(fields['text'], answer_group, 
+            'something else')
         self.assertEqual(a1.id, a2.id)
         self.assertEqual(a2.value, 'something else')
 
@@ -117,59 +127,63 @@ class SurveyTests(TestCase):
             first_version.add_question(Text, 'fail')
 
         with self.assertRaises(EditNotAllowedException):
-            first_version.remove_question(tx)
+            first_version.remove_question(fields['text'])
 
         # more answers
-        a = first_version.answer_question(mt, answer_group, 'answer\nanswer')
+        a = first_version.answer_question(fields['multitext'], answer_group, 
+            'answer\nanswer')
         self.assertEqual(a.value, 'answer\nanswer')
 
-        a = first_version.answer_question(dr, answer_group, 'a')
+        a = first_version.answer_question(fields['dropdown'], answer_group, 'a')
         self.assertEqual(a.value, 'a')
         with self.assertRaises(ValidationError):
-            first_version.answer_question(dr, answer_group, 'z')
+            first_version.answer_question(fields['dropdown'], answer_group, 'z')
 
-        a = first_version.answer_question(rd, answer_group, 'c')
+        a = first_version.answer_question(fields['radio'], answer_group, 'c')
         self.assertEqual(a.value, 'c')
         with self.assertRaises(ValidationError):
-            first_version.answer_question(dr, answer_group, 'z')
+            first_version.answer_question(fields['dropdown'], answer_group, 'z')
 
-        a = first_version.answer_question(cb, answer_group, 'e')
+        a = first_version.answer_question(fields['checkboxes'], answer_group, 
+            'e')
         self.assertEqual(a.value, 'e')
 
-        a = first_version.answer_question(in_, answer_group, 1)
+        a = first_version.answer_question(fields['integer'], answer_group, 1)
         self.assertEqual(a.value, 1)
         with self.assertRaises(ValidationError):
-            first_version.answer_question(in_, answer_group, 'z')
+            first_version.answer_question(fields['integer'], answer_group, 'z')
 
-        a = first_version.answer_question(fl, answer_group, 1.2)
+        a = first_version.answer_question(fields['float'], answer_group, 1.2)
         self.assertEqual(a.value, 1.2)
         with self.assertRaises(ValidationError):
-            first_version.answer_question(fl, answer_group, 'z')
+            first_version.answer_question(fields['float'], answer_group, 'z')
 
-        ag2 = AnswerGroup.factory(survey_version=first_version)
-        ag3 = AnswerGroup.factory(survey_version=first_version)
-        a = first_version.answer_question(cb, ag2, 'e,f')
+        # create some more answer groups, do some data association as well
+        # (doesn't matter with what, so we'll associate it with another AG)
+        ag2 = AnswerGroup.factory(first_version, answer_group)
+        ag3 = AnswerGroup.factory(first_version)
+        a = first_version.answer_question(fields['checkboxes'], ag2, 'e,f')
         self.assertEqual(a.value, 'e,f')
         with self.assertRaises(ValidationError):
-            first_version.answer_question(cb, ag3, 'z')
+            first_version.answer_question(fields['checkboxes'], ag3, 'z')
         with self.assertRaises(ValidationError):
-            first_version.answer_question(cb, ag3, 'e,z')
+            first_version.answer_question(fields['checkboxes'], ag3, 'e,z')
 
-        a = first_version.answer_question(rt, answer_group, 1)
+        a = first_version.answer_question(fields['rating'], answer_group, 1)
         self.assertEqual(a.value, 1)
 
         # check number validation
         with self.assertRaises(ValidationError):
-            first_version.answer_question(rt, answer_group, 'a')
+            first_version.answer_question(fields['rating'], answer_group, 'a')
 
         # try to answer a question not in this version
         with self.assertRaises(AttributeError):
-            survey.answer_question(rt, answer_group, 1)
+            survey.answer_question(fields['rating'], answer_group, 1)
 
         # -- misc coverage items
         str(survey)
         str(first_version)
-        str(tx)
+        str(fields['text'])
         str(QuestionOrder.objects.first())
         str(answer_group)
         str(a1)
@@ -177,7 +191,7 @@ class SurveyTests(TestCase):
 
     def test_survey_dicts(self):
         self.maxDiff = None
-        survey, mt, tx, dr, rd, cb, rt, in_, fl = sample_survey()
+        survey, fields = create_survey()
 
         # -- create a delta that changes nothing
         expected = survey.to_dict()
@@ -246,7 +260,7 @@ class SurveyTests(TestCase):
 
         # -- verify disallowed editing
         ag = AnswerGroup.factory(survey_version=survey.latest_version)
-        survey.answer_question(mt, ag, 'answer\nanswer')
+        survey.answer_question(fields['multitext'], ag, 'answer\nanswer')
 
         with self.assertRaises(EditNotAllowedException):
             survey.replace_from_dict(delta)
@@ -272,8 +286,9 @@ class SurveyTests(TestCase):
 
 
 def fake_reverse(name, args):
-    if name in ['dform-survey', 'dform-sample-survey', 
-            'dform-survey-with-answers']:
+    if name in ['dform-sample-survey', 'dform-survey',
+            'dform-embedded-survey', 'dform-survey-with-answers',
+            'dform-embedded-survey-with-answers']:
         raise NoReverseMatch
 
     return reverse(name, args=args)
@@ -289,42 +304,55 @@ class AdminTestCase(TestCase, AdminToolsMixin):
         survey_admin = SurveyAdmin(Survey, self.site)
         version_admin = SurveyVersionAdmin(SurveyVersion, self.site)
         group_admin = AnswerGroupAdmin(AnswerGroup, self.site)
-        survey, _, tx, _, _, _, _, _, _ = sample_survey()
+        survey, fields = create_survey()
 
         with patch('dform.admin.reverse') as mock_reverse:
             mock_reverse.side_effect = fake_reverse
 
             html = self.field_value(survey_admin, survey, 'show_actions')
             actions = html.split(',')
-            self.assertEqual(1, len(actions))
+            self.assertEqual(2, len(actions))
 
-            url, text = parse_link(html)
+            url, text = parse_link(actions[0])
             self.assertEqual(text, 'Edit Survey')
+
+            url, text = parse_link(actions[1])
+            self.assertEqual(text, 'Show Links')
 
             # -- SurveyVersion of same test
             result = self.field_value(version_admin, survey.latest_version, 
                 'show_actions')
-            self.assertEqual(1, len(actions))
+            self.assertEqual(2, len(actions))
 
-            url, text = parse_link(html)
+            url, text = parse_link(actions[0])
             self.assertEqual(text, 'Edit Survey')
+
+            url, text = parse_link(actions[1])
+            self.assertEqual(text, 'Show Links')
 
             # -- repeat with locked survey
             answer = 'answer and stuff and things'
             ag = AnswerGroup.factory(survey_version=survey.latest_version)
-            survey.answer_question(tx, ag, answer)
+            survey.answer_question(fields['text'], ag, answer)
 
             html = self.field_value(survey_admin, survey, 'show_actions')
             actions = html.split(',')
-            self.assertEqual(1, len(actions))
+            self.assertEqual(2, len(actions))
 
-            url, text = parse_link(html)
+            url, text = parse_link(actions[0])
             self.assertEqual(text, 'New Version')
 
+            url, text = parse_link(actions[1])
+            self.assertEqual(text, 'Show Links')
+
             # -- SurveyVersion of same test
-            result = self.field_value(version_admin, survey.latest_version, 
+            html = self.field_value(version_admin, survey.latest_version, 
                 'show_actions')
-            self.assertEqual('', result)
+            actions = html.split(',')
+            self.assertEqual(1, len(actions))
+
+            url, text = parse_link(actions[0])
+            self.assertEqual(text, 'Show Links')
 
             # -- check actions on AG
             result = self.field_value(group_admin, ag, 'show_actions')
@@ -336,6 +364,13 @@ class AdminTestCase(TestCase, AdminToolsMixin):
 
         response = self.authed_get(url)
         self.assertTemplateUsed(response, 'dform/edit_survey.html')
+
+    def assert_show_link(self, link):
+        url, text = parse_link(link)
+        self.assertEqual('Show Links', text)
+
+        response = self.authed_get(url)
+        self.assertTemplateUsed(response, 'dform/links_survey.html')
 
     def assert_sample_link(self, link):
         url, text = parse_link(link)
@@ -362,7 +397,7 @@ class AdminTestCase(TestCase, AdminToolsMixin):
 
         survey_admin = SurveyAdmin(Survey, self.site)
         version_admin = SurveyVersionAdmin(SurveyVersion, self.site)
-        survey, _, tx, _, _, _, _, _, _ = sample_survey()
+        survey, fields = create_survey()
         first_version = survey.latest_version
 
         # check version number
@@ -371,30 +406,34 @@ class AdminTestCase(TestCase, AdminToolsMixin):
 
         # -- show_actions
         links = self.field_value(survey_admin, survey, 'show_actions')
-        edit, sample, change = links.split(',')
+        edit, show, sample, change = links.split(',')
         self.assert_edit_link(edit)
+        self.assert_show_link(show)
         self.assert_sample_link(sample)
         self.assert_change_link(change)
 
         links = self.field_value(version_admin, first_version, 'show_actions')
-        edit, sample, change = links.split(',')
+        edit, show, sample, change = links.split(',')
         self.assert_edit_link(edit)
+        self.assert_show_link(show)
         self.assert_sample_link(sample)
         self.assert_change_link(change)
 
         # add answer and verify "new version" link
         answer = 'answer and stuff and things'
         ag = AnswerGroup.factory(survey_version=survey.latest_version)
-        survey.answer_question(tx, ag, answer)
+        survey.answer_question(fields['text'], ag, answer)
 
         links = self.field_value(survey_admin, survey, 'show_actions')
-        version, sample, change = links.split(',')
+        version, show, sample, change = links.split(',')
         self.assert_version_link(version)
+        self.assert_show_link(show)
         self.assert_sample_link(sample)
         self.assert_change_link(change)
 
         links = self.field_value(version_admin, first_version, 'show_actions')
-        sample, change = links.split(',')
+        show, sample, change = links.split(',')
+        self.assert_show_link(show)
         self.assert_sample_link(sample)
         self.assert_change_link(change)
 
@@ -462,25 +501,41 @@ class AdminTestCase(TestCase, AdminToolsMixin):
         self._assert_question_fields(html, q_url, '2 Questions', r_url)
 
         # -- show answers
-        url = '/admin/dform/answer/?survey_version__id=%s' % (
-            survey.latest_version.id)
+
+        # verify "show answers" URLs no answers
+        html = self.field_value(survey_admin, survey, 'show_answers')
+        self.assertEqual('', html)
+
+        html = self.field_value(version_admin, first_version, 'show_answers')
+        self.assertEqual('', html)
 
         # add answer
         ag = AnswerGroup.factory(survey_version=survey.latest_version)
         survey.answer_question(q, ag, '1st Answer')
 
+        # urls for these answers
+        sa_url = '/admin/dform/answergroup/?survey_version__survey__id=%s' % (
+            survey.latest_version.id)
+        sva_url = '/admin/dform/answergroup/?survey_version__id=%s' % (
+            survey.latest_version.id)
         ch_url = '/dform/survey_with_answers/%s/%s/%s/%s/' % (
             survey.latest_version.id, survey.token, ag.id, ag.token)
+        link_url = '/dform_admin/answer_links/%s/' % survey.latest_version.id
 
+        # verify AG "show actions" URLs
         html = self.field_value(group_admin, ag, 'show_actions')
-        self._assert_link(html, ch_url, 'Change Answers')
+        actions = html.split(',')
+        self.assertEqual(2, len(actions))
+        self._assert_link(actions[0], ch_url, 'Change Answers')
+        self._assert_link(actions[1], link_url, 'Show Links')
 
+        # verify "show answers" URLs, single answer
         html = self.field_value(survey_admin, survey, 'show_answers')
-        self._assert_link(html, url, '1 Answer')
+        self._assert_link(html, sa_url, '1 Answer Set')
         self.assertNotIn('Answers', html)
 
         html = self.field_value(version_admin, first_version, 'show_answers')
-        self._assert_link(html, url, '1 Answer')
+        self._assert_link(html, sva_url, '1 Answer Set')
         self.assertNotIn('Answers', html)
 
         # add another answer, handling multiples
@@ -488,10 +543,16 @@ class AdminTestCase(TestCase, AdminToolsMixin):
         survey.answer_question(q, ag2, '2nd Answer')
 
         html = self.field_value(survey_admin, survey, 'show_answers')
-        self._assert_link(html, url, '2 Answers')
+        self._assert_link(html, sa_url, '2 Answer Sets')
 
         html = self.field_value(version_admin, first_version, 'show_answers')
-        self._assert_link(html, url, '2 Answers')
+        self._assert_link(html, sva_url, '2 Answer Sets')
+
+        # --- misc for coverage
+        self.assertTrue(
+            group_admin.lookup_allowed('survey_version__survey__id', 1))
+        self.assertFalse(
+            group_admin.lookup_allowed('survey_version__survey', 1))
 
     def test_question_admin(self):
         self.initiate()
@@ -593,7 +654,7 @@ class SurveyAdminViewTests(TestCase, AdminToolsMixin):
     def test_survey_delta_view(self):
         self.initiate()
         self.maxDiff = None
-        survey, mt, tx, dr, rd, cb, rt, in_, fl = sample_survey()
+        survey, fields = create_survey()
 
         # -- create a new survey
         expected = {
@@ -622,7 +683,7 @@ class SurveyAdminViewTests(TestCase, AdminToolsMixin):
         # -- verify mismatched question/survey is refused
         delta = {
             'questions':[{
-                'id':mt.id,   # question from survey1
+                'id':fields['multitext'].id,   # question from survey1
             }]
         }
 
@@ -653,7 +714,7 @@ class SurveyAdminViewTests(TestCase, AdminToolsMixin):
 
         # -- verify disallowed editing
         ag = AnswerGroup.factory(survey_version=survey.latest_version)
-        survey.answer_question(mt, ag, 'answer\nanswer')
+        survey.answer_question(fields['multitext'], ag, 'answer\nanswer')
         delta = {
             'name':'Foo',
         }
@@ -676,10 +737,38 @@ class SurveyAdminViewTests(TestCase, AdminToolsMixin):
             survey.latest_version.id)
         self.assertTemplateUsed(response, 'dform/edit_survey.html')
 
+    def test_show_links(self):
+        self.initiate()
+        survey, fields = create_survey()
+
+        # test survey links page
+        response = self.authed_get('/dform_admin/survey_links/%s/' % (
+            survey.latest_version.id))
+        self.assertEqual(200, response.status_code)
+        self.assertEqual('Links for: survey', response.context['title'])
+        self.assertTemplateUsed(response, 'dform/links_survey.html')
+
+        # test survey with answer links page
+        ag = AnswerGroup.factory(survey_version=survey.latest_version)
+        survey.answer_question(fields['multitext'], ag, 'an answer')
+
+        response = self.authed_get('/dform_admin/answer_links/%s/' % ag.id)
+        self.assertEqual(200, response.status_code)
+        self.assertEqual('Answer Links for: survey', response.context['title'])
+        self.assertTemplateUsed(response, 'dform/links_answers.html')
+
 
 class SurveyViewTests(TestCase):
+    def _data_gen(self):
+        redirect = '/admin/'
+        survey, fields = create_survey()
+        survey.success_redirect = redirect
+        survey.save()
+
+        return survey, fields
+
     def test_sample_survey(self):
-        survey, mt, tx, dr, rd, cb, rt, in_, fl = sample_survey()
+        survey, fields = create_survey()
 
         response = self.client.get('/dform/sample_survey/%s/' % (
             survey.latest_version.id))
@@ -687,41 +776,51 @@ class SurveyViewTests(TestCase):
         self.assertEqual('Sample: survey', response.context['title'])
         self.assertTemplateUsed(response, 'dform/survey.html')
 
-    def test_survey_view(self):
-        redirect = '/admin/'
-        survey, mt, tx, dr, rd, cb, rt, in_, fl = sample_survey()
-        survey.success_redirect = redirect
-        survey.save()
+    #---- Survey Views
+    def _survey_view(self, url_base, expect_pym):
+        survey, fields = self._data_gen()
+        expected = list(zip(fields.values(), ['mt', 'tx', 'a', 'c', 'e', 2, 42, 
+            13.69]))
+        url = url_base % (survey.latest_version.id, survey.token)
 
-        response = self.client.get('/dform/survey/%s/%s/' % (
-            survey.latest_version.id, survey.token))
+        response = self.client.get(url)
         self.assertEqual(200, response.status_code)
         self.assertEqual('survey', response.context['title'])
         self.assertTemplateUsed(response, 'dform/survey.html')
 
-        dataset = [(mt, 'mt'), (tx, 'tx'), (dr, 'a'), (rd, 'c'), (cb, 'e'), 
-            (rt, 2), (in_, 42), (fl, 13.69)]
-
+        # verify pym.js is included or absent as expected
+        found_pym = RE_PYM.search(response.content.decode('utf-8'))
+        if expect_pym:
+            self.assertEqual(None, found_pym)
+        else:
+            self.assertFalse(found_pym)
+        
         data = {}
-        for question, value in dataset:
+        for question, value in expected:
             key = 'q_%s' % question.id
             data[key] = value
 
-        response = self.client.post('/dform/survey/%s/%s/' % (
-            survey.latest_version.id, survey.token), data)
+        response = self.client.post(url, data)
         self.assertEqual(302, response.status_code)
-        self.assertIn(redirect, response._headers['location'][1])
+        self.assertIn(survey.success_redirect, response._headers['location'][1])
 
         self.assertEqual(8, Answer.objects.count())
-        for question, value in dataset:
+        for question, value in expected:
             answer = Answer.objects.get(question=question)
             self.assertEqual(value, answer.value)
 
         # -- check with system level submit action
         with self.settings(DFORM_SURVEY_SUBMIT='/foo/'):
-            response = self.client.get('/dform/survey/%s/%s/' % (
-                survey.latest_version.id, survey.token))
+            response = self.client.get(url)
             self.assertEqual('/foo/', response.context['submit_action'])
+
+    def test_survey_view(self):
+        url_base = '/dform/survey/%s/%s/'
+        self._survey_view(url_base, False)
+
+    def test_embedded_survey_view(self):
+        url_base = '/dform/embedded_survey/%s/%s/'
+        self._survey_view(url_base, True)
 
     def test_permission_hooks(self):
         hook = 'dform.tests.test_dform.perm_hook'
@@ -731,77 +830,93 @@ class SurveyViewTests(TestCase):
                 self.client.post('/dform/survey/1/abc/')
 
             with self.assertRaises(GotHere):
+                self.client.post('/dform/embedded_survey/1/abc/')
+
+            with self.assertRaises(GotHere):
                 self.client.post('/dform/sample_survey/1/')
 
             with self.assertRaises(GotHere):
                 self.client.post('/dform/survey_with_answers/1/abc/2/abc/')
 
-    def test_survey_with_answers(self):
-        redirect = '/admin/'
-        survey, mt, tx, dr, rd, cb, rt, in_, fl = sample_survey()
-        survey.success_redirect = redirect
-        survey.save()
+            with self.assertRaises(GotHere):
+                self.client.post(
+                    '/dform/embedded_survey_with_answers/1/abc/2/abc/')
 
-        dataset = [(mt, 'mt'), (tx, 'tx'), (dr, 'a'), (rd, 'c'), (cb, 'e,f'), 
-            (rt, 2), (in_, 42), (fl, 13.69)]
+    #---- Survey Answer Views
+    def _survey_with_answers(self, url_base, expect_pym):
+        survey, fields = self._data_gen()
+        questions = list(fields.values())
+        expected = list(zip(questions, ['mt', 'tx', 'a', 'c', 'e,f', 2, 42, 
+            13.69]))
+        del questions[4]
+        expected2 = list(zip(questions,['mt2', 'tx2', 'b', 'd', 3, 43, 18.62]))
 
         ag = AnswerGroup.factory(survey_version=survey.latest_version)
-        for question, value in dataset:
+        for question, value in expected:
             survey.answer_question(question, ag, value)
 
-        response = self.client.get('/dform/survey_with_answers/%s/%s/%s/%s/' % (
-            survey.latest_version.id, survey.token, ag.id, ag.token))
+        url = url_base % (survey.latest_version.id, survey.token, ag.id, 
+            ag.token)
+        response = self.client.get(url)
         self.assertEqual(200, response.status_code)
         self.assertEqual('survey', response.context['title'])
         self.assertTemplateUsed(response, 'dform/survey.html')
 
+        # verify pym.js is included or absent as expected
+        found_pym = RE_PYM.search(response.content.decode('utf-8'))
+        if expect_pym:
+            self.assertEqual(None, found_pym)
+        else:
+            self.assertFalse(found_pym)
+
         form = response.context['form']
         self.assertEqual(8, len(form.fields))
-        for question, value in dataset:
+        for question, value in expected:
             key = 'q_%s' % question.id
             field = form.fields[key]
             self.assertEqual(value, field.initial)
 
         # -- test change in values, including emptying out a field (no cb)
-        dataset = [(mt, 'mt2'), (tx, 'tx2'), (dr, 'b'), (rd, 'd'), (rt, 3), 
-            (in_, 43), (fl, 18.62)]
         data = {}
-        for question, value in dataset:
+        for question, value in expected2:
             key = 'q_%s' % question.id
             data[key] = value
 
-        response = self.client.post('/dform/survey_with_answers/%s/%s/%s/%s/' %(
-            survey.latest_version.id, survey.token, ag.id, ag.token), data)
+        response = self.client.post(url, data)
         self.assertEqual(302, response.status_code)
-        self.assertIn(redirect, response._headers['location'][1])
+        self.assertIn(survey.success_redirect, response._headers['location'][1])
 
         self.assertEqual(7, Answer.objects.count())
-        for question, value in dataset:
+        for question, value in expected2:
             answer = Answer.objects.get(question=question)
             self.assertEqual(value, answer.value)
 
         # once more with a lot of missing fields to trigger the answer delete
         # handling
         data = {
-            'q_%s' % mt.id:'mt3',
+            'q_%s' % fields['multitext'].id:'mt3',
         }
 
-        response = self.client.post(
-            '/dform/survey_with_answers/%s/%s/%s/%s/' % (
-                survey.latest_version.id, survey.token, ag.id, ag.token), data)
+        response = self.client.post(url, data)
         self.assertEqual(302, response.status_code)
-        self.assertIn(redirect, response._headers['location'][1])
+        self.assertIn(survey.success_redirect, response._headers['location'][1])
 
         self.assertEqual(1, Answer.objects.count())
-        answer = Answer.objects.get(question=mt)
+        answer = Answer.objects.get(question=expected[0][0])
         self.assertEqual('mt3', answer.value)
 
         # -- check with system level submit action
         with self.settings(DFORM_SURVEY_WITH_ANSWERS_SUBMIT='/foo/'):
-            response = self.client.get(
-                '/dform/survey_with_answers/%s/%s/%s/%s/' % (
-                survey.latest_version.id, survey.token, ag.id, ag.token))
+            response = self.client.get(url)
             self.assertEqual('/foo/', response.context['submit_action'])
+
+    def test_survey_with_answers(self):
+        url_base = '/dform/survey_with_answers/%s/%s/%s/%s/'
+        self._survey_with_answers(url_base, False)
+
+    def test_embedded_survey_with_answers(self):
+        url_base = '/dform/embedded_survey_with_answers/%s/%s/%s/%s/'
+        self._survey_with_answers(url_base, True)
 
 
 class FormTest(TestCase):

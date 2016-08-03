@@ -1,0 +1,22 @@
+{% extends "dform/base.html" %}
+{% load staticfiles %}
+{% block title %}{{title}}{% endblock title %}
+
+{% block contents %}
+<div class="row">
+  <div class="col-sm-8 col-sm-offset-2">
+    <h2>{{title}}</h2>
+
+    <h3>Link to Survey with Answers</h3>
+    <p>
+      The following is a link to a stand-alone survey page which has been
+      answered before.
+    </p>
+<pre>
+&lt;a href="{{survey_url}}"&gt;{{version.survey.name}}&lt;/a&gt;
+</pre>
+
+  </div>
+</div>
+
+{% endblock contents %}

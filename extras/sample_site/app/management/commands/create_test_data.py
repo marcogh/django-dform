@@ -32,7 +32,7 @@ colours = [ 'Pink', 'LightPink', 'HotPink', 'DeepPink', 'PaleVioletRed',
 
 class Command(BaseCommand):
     def handle(self, *args, **options):
-        survey = Survey.objects.create(name='Sample Survey',
+        survey = Survey.factory(name='Sample Survey',
             success_redirect='/admin/')
         survey.add_question(Text, 'Single line text question')
         survey.add_question(MultiText, 'Multiline question', required=True)
@@ -49,7 +49,7 @@ class Command(BaseCommand):
         survey.add_question(Integer, 'Pick an integer number')
         survey.add_question(Float, 'Pick a float number')
 
-        survey = Survey.objects.create(name='Favourites Survey', 
+        survey = Survey.factory(name='Favourites Survey', 
             success_redirect='/admin/')
         q = survey.add_question(Text, 'What is your favourite colour?')
         
