@@ -1,3 +1,9 @@
+0.6.1
+=====
+
+* made python 3.5 and django 1.10 compatible
+* fixed missing migrations
+
 0.5
 ===
 
