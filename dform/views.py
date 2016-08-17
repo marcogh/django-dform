@@ -7,11 +7,10 @@ from django.contrib.admin.views.decorators import staff_member_required
 from django.contrib.staticfiles.storage import staticfiles_storage
 from django.core.urlresolvers import reverse
 from django.http import HttpResponse, HttpResponseRedirect, Http404
-from django.shortcuts import get_object_or_404
+from django.shortcuts import get_object_or_404, render
 from django.template import Context, Template
 
 from awl.decorators import post_required
-from awl.utils import render_page
 from wrench.utils import dynamic_load
 
 from .forms import SurveyForm
@@ -79,7 +78,7 @@ def survey_editor(request, survey_version_id):
         'return_url':return_url,
     }
 
-    return render_page(request, 'dform/edit_survey.html', data)
+    return render(request, 'dform/edit_survey.html', data)
 
 
 @staff_member_required
@@ -115,7 +114,7 @@ def survey_links(request, survey_version_id):
         'version':version,
     }
 
-    return render_page(request, 'dform/links_survey.html', data)
+    return render(request, 'dform/links_survey.html', data)
 
 
 @staff_member_required
@@ -136,7 +135,7 @@ def answer_links(request, answer_group_id):
         'survey_url':survey_url,
     }
 
-    return render_page(request, 'dform/links_answers.html', data)
+    return render(request, 'dform/links_answers.html', data)
 
 # ============================================================================
 # Form Views
@@ -162,7 +161,7 @@ def sample_survey(request, survey_version_id):
         'submit_action':'',
     }
 
-    return render_page(request, 'dform/survey.html', data)
+    return render(request, 'dform/survey.html', data)
 
 # -------------------
 
@@ -199,7 +198,7 @@ def _survey_view(request, survey_version_id, token, is_embedded):
         'submit_action':submit_action,
     }
 
-    return render_page(request, 'dform/survey.html', data)
+    return render(request, 'dform/survey.html', data)
 
 
 @permission_hook
@@ -268,7 +267,7 @@ def _survey_with_answers_view(request, survey_version_id, survey_token,
         'submit_action':submit_action,
     }
 
-    return render_page(request, 'dform/survey.html', data)
+    return render(request, 'dform/survey.html', data)
 
 
 @permission_hook

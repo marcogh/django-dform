@@ -1,6 +1,6 @@
 import os
 
-VERSION = '0.5.0'
+VERSION = '0.6.0'
 
 readme = os.path.join(os.path.dirname(__file__), 'README.rst')
 long_description = open(readme).read()
@@ -30,13 +30,13 @@ SETUP_ARGS = dict(
     keywords='django,form,survey',
     test_suite="load_tests.get_suite",
     install_requires=[
-        'Django>=1.8,<1.9',
-        'django-awl>=0.6.1',
-        'wrench>=0.5.1',
+        'Django>=1.8',
+        'django-awl>=0.13',
+        'wrench>=0.9',
         'jsonfield>=1.0.3',
     ],
     tests_require=[
-        'mock>=1.3.0',
+        'mock>=2.0.0',
     ]
 )
 

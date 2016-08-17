@@ -38,9 +38,21 @@ def get_suite(labels=default_labels):
             'dform',
             'dform.tests',
         ),
-        TEMPLATE_DIRS = (
-            os.path.abspath(os.path.join(BASE_DIR, 'dform/templates')),
-        ),
+        TEMPLATES = [{
+            'BACKEND':'django.template.backends.django.DjangoTemplates',
+            'DIRS':[
+                os.path.abspath(os.path.join(BASE_DIR, 'dform/templates')),
+            ],
+            'APP_DIRS':True,
+            'OPTIONS': {
+                'context_processors':[
+                    'django.template.context_processors.debug',
+                    'django.template.context_processors.request',
+                    'django.contrib.auth.context_processors.auth',
+                    'django.contrib.messages.context_processors.messages',
+                ]
+            }
+        }],
         STATIC_URL='/static/',
     )
 
