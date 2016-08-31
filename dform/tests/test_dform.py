@@ -34,7 +34,7 @@ def perm_hook(name, *args, **kwargs):
 
 def create_survey():
     # Creates and returns a survey and its questions
-    survey = Survey.factory(name='survey')
+    survey = Survey.factory(name='survey', success_redirect='http://localhost/')
 
     # add some questions
     fields = OrderedDict()
@@ -205,6 +205,32 @@ class SurveyTests(TestCase):
         delta = survey.to_dict()
         self.assertEqual(expected, delta)
 
+        # -- test blank name and URL
+        delta = {
+            'name':'   ',
+            'redirect_url':'   ',
+        }
+        with self.assertRaises(ValidationError) as ar:
+            survey.replace_from_dict(delta)
+
+        params = ar.exception.params
+        self.assertEqual(2, len(params.keys()))
+        self.assertIn('name', params)
+        self.assertIn('redirect_url', params)
+
+        # -- test invalid URL
+        delta = {
+            'name':expected['name'],
+            'redirect_url':'asdf',
+        }
+
+        with self.assertRaises(ValidationError) as ar:
+            survey.replace_from_dict(delta)
+
+        params = ar.exception.params
+        self.assertEqual(1, len(params.keys()))
+        self.assertIn('redirect_url', params)
+
         # -- rename survey, change questions: reorder, edit and add
         expected['name'] = 'Renamed'
         expected['questions'][4], expected['questions'][5] = \
@@ -231,6 +257,8 @@ class SurveyTests(TestCase):
 
         # -- verify remove works
         delta = {
+            'name':expected['name'],
+            'redirect_url':expected['redirect_url'],
             'remove':[expected['questions'][0]['id'], ]
         }
         survey.replace_from_dict(delta)
@@ -242,6 +270,8 @@ class SurveyTests(TestCase):
         # -- verify error conditions for bad question ids
         last_question = Question.objects.all().order_by('id').last()
         delta = {
+            'name':expected['name'],
+            'redirect_url':expected['redirect_url'],
             'questions':[{
                 'id':last_question.id + 10,
             }]
@@ -252,6 +282,8 @@ class SurveyTests(TestCase):
 
         # try remove
         delta = {
+            'name':expected['name'],
+            'redirect_url':expected['redirect_url'],
             'remove':[last_question.id + 10, ],
         }
 
@@ -659,6 +691,7 @@ class SurveyAdminViewTests(TestCase, AdminToolsMixin):
         # -- create a new survey
         expected = {
             'name':'New Survey',
+            'redirect_url':'http://localhost/',
             'questions':[{
                 'id':0,
                 'field_key':Dropdown.field_key,
@@ -680,8 +713,17 @@ class SurveyAdminViewTests(TestCase, AdminToolsMixin):
         self.assertEqual(2, Survey.objects.count())
         self.assertEqual(9, Question.objects.count())
 
+        # -- check error conditions on missing name or URL
+        delta = {}
+        result = self.authed_post('/dform_admin/survey_delta/%s/' % (
+            survey2.latest_version.id), data={'delta':json.dumps(delta)})
+        content = result.content.decode('utf-8')
+        self.assertFalse(json.loads(content)['success'])
+
         # -- verify mismatched question/survey is refused
         delta = {
+            'name':expected['name'],
+            'redirect_url':expected['redirect_url'],
             'questions':[{
                 'id':fields['multitext'].id,   # question from survey1
             }]
@@ -694,6 +736,8 @@ class SurveyAdminViewTests(TestCase, AdminToolsMixin):
         # -- verify error conditions for bad question ids
         last_question = Question.objects.all().order_by('id').last()
         delta = {
+            'name':expected['name'],
+            'redirect_url':expected['redirect_url'],
             'questions':[{
                 'id':last_question.id + 10,
             }]
@@ -705,6 +749,8 @@ class SurveyAdminViewTests(TestCase, AdminToolsMixin):
 
         # try remove
         delta = {
+            'name':expected['name'],
+            'redirect_url':expected['redirect_url'],
             'remove':[last_question.id + 10, ],
         }
 
@@ -717,6 +763,7 @@ class SurveyAdminViewTests(TestCase, AdminToolsMixin):
         survey.answer_question(fields['multitext'], ag, 'answer\nanswer')
         delta = {
             'name':'Foo',
+            'redirect_url':expected['redirect_url'],
         }
 
         self.authed_post('/dform_admin/survey_delta/%s/' % (

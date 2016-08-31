@@ -72,12 +72,22 @@ body {
 
     <div class="panel panel-default">
       <div class="panel-body">
-        <div class="form-group">
+        <div id="fg-name" class="form-group">
           <label for="name" class="col-sm-3 control-label">
             Survey Name:
           </label>
           <div class="col-sm-9">
             <input id="name" type="text" class="form-control"/>
+            <span class="help-block"></span>
+          </div>
+        </div>
+        <div id="fg-redirect_url" class="form-group">
+          <label for="redirect_url" class="col-sm-3 control-label">
+            Redirect URL:
+          </label>
+          <div class="col-sm-9">
+            <input id="redirect_url" type="text" class="form-control"/>
+            <span class="help-block"></span>
           </div>
         </div>
       </div>
@@ -442,12 +452,19 @@ function register_remove_actions() {
 
 function register_done_actions() {
   $('#save').click(function() {
+    // set up our save dict to be passed to server
     var delta = {
       name:$('#name').val(),
+      redirect_url:$('#redirect_url').val(),
       questions:[],
       remove:remove_list,
     };
 
+    // reset any errors
+    $('.has-error').removeClass('has-error');
+    $('.help-block').hide();
+
+    // add each question to our delta
     $('.question').each(function() {
       var question = {
         id:$(this).data('q_id'),
@@ -469,6 +486,7 @@ function register_done_actions() {
       delta['questions'].push(question);
     });
 
+    // prep and post data
     var data = {
       csrfmiddlewaretoken:'{{csrf_token}}',
       delta:JSON.stringify(delta),
@@ -478,8 +496,23 @@ function register_done_actions() {
       method:'POST',
       url:'{{save_url}}',
       data:data,
-      success:function() {
-        window.location.assign('{{return_url}}');
+      success:function(response) {
+        if( response['success'] ) {
+          // everything worked, go back where we came from
+          window.location.assign('{{return_url}}');
+        }
+        else {
+          for(var key in response['errors']) {
+            if( !response['errors'].hasOwnProperty(key) ) {
+              continue;
+            }
+
+            // set the form group to error
+            var group = $('#fg-' + key);
+            group.addClass('has-error');
+            group.find('.help-block').html(response['errors'][key]).show();
+          }
+        }
       },
     });
 
@@ -498,6 +531,7 @@ function register_done_actions() {
 
 $(function() {
   $('#name').val(data['name']);
+  $('#redirect_url').val(data['redirect_url']);
 
   register_add_actions();
   register_remove_actions();

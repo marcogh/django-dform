@@ -4,6 +4,8 @@ import logging, collections, random
 from django.conf import settings
 from django.contrib.contenttypes.fields import GenericForeignKey
 from django.contrib.contenttypes.models import ContentType
+from django.core.exceptions import ValidationError
+from django.core.validators import URLValidator
 from django.db import models, transaction
 from django.db.models.signals import post_save
 from django.dispatch import receiver
@@ -358,6 +360,7 @@ class SurveyVersion(TimeTrackModel):
 
             {
                 'name':survey_name,
+                'redriect_url':redirect_url,
                 'questions':[
                     {
                         'id':question_id,
@@ -392,6 +395,7 @@ class SurveyVersion(TimeTrackModel):
 
         data = {
             'name':self.survey.name,
+            'redirect_url':self.survey.success_redirect,
             'questions':questions,
         }
 
@@ -412,11 +416,34 @@ class SurveyVersion(TimeTrackModel):
         :raises Question.DoesNotExist:
             If a question id is referenced that does not exist or is not
             associated with this survey.
+        :raises ValidationError:
+            If the name or success_redirect URL are blank or if the URL is
+            invalid
         """
         self.validate_editable()
+        errors = {}
+        name = data.get('name', '').strip()
+        url = data.get('redirect_url', '').strip()
 
-        if 'name' in data:
-            self.survey.name = data['name']
+        if not name:
+            errors['name'] = 'name cannot be blank'
+        else:
+            self.survey.name = name
+
+        if not url:
+            errors['redirect_url'] = 'redirect URL cannot be blank'
+        else:
+            validator = URLValidator(schemes=['http', 'https'])
+            try:
+                validator(url)
+                self.survey.success_redirect = url
+            except ValidationError:
+                errors['redirect_url'] = ('invalid URL; only fully qualified '
+                    'URLs are supported')
+
+        if errors:
+            raise ValidationError('Survey Validation Failed', params=errors)
+        else:
             self.survey.save()
 
         if 'questions' in data:

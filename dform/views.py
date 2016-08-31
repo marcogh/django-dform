@@ -5,8 +5,10 @@ from functools import wraps
 from django.conf import settings
 from django.contrib.admin.views.decorators import staff_member_required
 from django.contrib.staticfiles.storage import staticfiles_storage
+from django.core.exceptions import ValidationError
 from django.core.urlresolvers import reverse
-from django.http import HttpResponse, HttpResponseRedirect, Http404
+from django.http import (HttpResponse, JsonResponse, HttpResponseRedirect, 
+    Http404)
 from django.shortcuts import get_object_or_404, render
 from django.template import Context, Template
 
@@ -49,15 +51,22 @@ def survey_delta(request, survey_version_id):
     else:
         version = get_object_or_404(SurveyVersion, id=survey_version_id)
 
+    response = {
+        'success':True,
+    }
+
     try:
         version.replace_from_dict(delta)
+    except ValidationError as ve:
+        response['success'] = False
+        response['errors'] = ve.params
     except EditNotAllowedException:
         raise Http404('Survey %s is not editable' % version.survey)
     except Question.DoesNotExist as dne:
         raise Http404('Bad question id: %s' % dne)
 
     # issue a 200 response
-    return HttpResponse()
+    return JsonResponse(response)
 
 
 @staff_member_required
