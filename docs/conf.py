@@ -23,8 +23,17 @@ import shlex
 #sys.path.insert(0, os.path.abspath('.'))
 
 sys.path.insert(0, os.path.abspath('..'))
+import django
 from django.conf import settings
-settings.configure()
+settings.configure(
+    DEBUG=True,
+    INSTALLED_APPS=(
+        'django.contrib.contenttypes',
+        'awl',
+        'dform',
+    ),
+)
+django.setup()
 
 # -- General configuration ------------------------------------------------
 
@@ -63,10 +72,9 @@ author = 'Christopher Trudeau'
 #
 # The short X.Y version.
 import imp
-mod = imp.load_source('dformsetup', '../setup.py')
+mod = imp.load_source('dform', '../dform/__init__.py')
 
-#version = mod.VERSION
-version = mod.SETUP_ARGS['version']
+version = mod.__version__
 # The full version, including alpha/beta/rc tags.
 release = version
 

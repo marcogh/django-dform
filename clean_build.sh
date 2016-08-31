@@ -1,6 +1,8 @@
 #!/bin/bash
 
-git tag `grep "VERSION = " setup.py | cut -d "'" -f 2`
+version=`grep "__version__ = " dform/__init__.py | cut -d "'" -f 2`
+
+git tag "$version"
 
 if [ "$?" != "0" ] ; then
     exit $?
@@ -12,6 +14,8 @@ python setup.py sdist
 python setup.py bdist_wheel
 
 echo "------------------------"
+echo 
+echo "Built version: $version"
 echo
 echo "now do:"
 echo "   twine upload dist/*"
