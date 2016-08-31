@@ -27,6 +27,33 @@ queries, or run aggregates using other tools.  This makes storage less than
 efficient, as each answer is going to have multiple empty fields.
 
 
+GUI
+***
+
+DForm has a simple Survey Editor to manage a survey and its questions, but
+otherwise uses the django admin.  On the
+django admin change-list screen for the :class:`.Survey`, the "Add Survey"
+button has been over-loaded to point to the Survey Editor, all other "Add
+Model" buttons have been removed.  Use either the Survey Editor or the links
+provided on the change-list screen to manipulate the various model objects.
+
+.. warning::
+    The django admin makes it pretty easy to change the change-list screen,
+    but the app-index screen is a fragile mess.  The "Add +" links on the
+    app-index screen have not been removed and will point at the original
+    django admin create screens for those models.  This is far more
+    complicated than using the Survey Editor.  
+
+**Django Change List Screen**
+
+.. figure:: changelist.png
+
+
+**Survey Editor**
+
+.. figure:: editor.png
+
+
 Configuration
 *************
 

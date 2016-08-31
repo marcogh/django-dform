@@ -1,3 +1,10 @@
+0.7.0
+=====
+
+* changed "Add Survey" button in django admin to use Survey Editor
+*
+*
+
 0.6.1
 =====
 
