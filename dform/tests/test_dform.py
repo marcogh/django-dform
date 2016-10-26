@@ -886,6 +886,9 @@ class SurveyViewTests(TestCase):
         self.assertEqual(302, response.status_code)
         self.assertIn(survey.success_redirect, response._headers['location'][1])
 
+        self.assertEqual(1, AnswerGroup.objects.count())
+        self.assertEqual('127.0.0.1', AnswerGroup.objects.first().ip_address)
+
         self.assertEqual(8, Answer.objects.count())
         for question, value in expected:
             answer = Answer.objects.get(question=question)

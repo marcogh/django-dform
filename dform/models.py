@@ -590,6 +590,9 @@ class AnswerGroup(TimeTrackModel):
     object_id = models.PositiveIntegerField(default=0)
     group_data = GenericForeignKey('content_type', 'object_id')
 
+    ip_address = models.GenericIPAddressField(default='0.0.0.0',
+        verbose_name='IP Address')
+
     class Meta:
         verbose_name = 'Answer Group'
 

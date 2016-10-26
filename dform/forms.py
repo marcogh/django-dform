@@ -20,6 +20,7 @@ class SurveyForm(forms.Form):
     def __init__(self, *args, **kwargs):
         self.survey_version = kwargs.pop('survey_version')
         self.answer_group = kwargs.pop('answer_group', None)
+        self.ip_address = kwargs.pop('ip_address', '')
 
         if 'initial' in kwargs:
             raise AttributeError(
@@ -80,6 +81,10 @@ class SurveyForm(forms.Form):
         if not self.answer_group:
             self.answer_group = AnswerGroup.factory(
                 survey_version=self.survey_version)
+
+        if self.ip_address:
+            self.answer_group.ip_address = self.ip_address
+            self.answer_group.save()
 
         for name, field in self.fields.items():
             question = Question.objects.get(id=name[2:], 

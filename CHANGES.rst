@@ -6,6 +6,7 @@
 * add Google reCAPTCHA capabilities
 * added views for getting latest survey
 * added Email field
+* added IP Address tracking on the survey submit
 
 0.6.1
 =====

@@ -247,8 +247,8 @@ mixin.add_obj_link('show_version', 'survey_version', 'Survey Version',
 
 @admin.register(AnswerGroup)
 class AnswerGroupAdmin(admin.ModelAdmin, mixin):
-    list_display = ('id', 'updated', 'show_version', 'show_data', 
-        'show_questions', 'show_answers', 'show_actions')
+    list_display = ('id', 'updated', 'show_version', 'show_data',
+        'ip_address', 'show_questions', 'show_answers', 'show_actions')
 
     def lookup_allowed(self, key, value):
         # enable cross FK lookups for this admin object

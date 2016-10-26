@@ -189,7 +189,8 @@ def _survey_view(request, survey_version_id, token, is_embedded):
         survey__token=token)
 
     if request.method == 'POST':
-        form = SurveyForm(request.POST, survey_version=version)
+        form = SurveyForm(request.POST, survey_version=version, 
+            ip_address=request.META['REMOTE_ADDR'])
         if form.is_valid():
             form.save()
 
