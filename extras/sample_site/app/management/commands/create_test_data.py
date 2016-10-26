@@ -4,7 +4,7 @@ from django.contrib.auth.models import User
 from django.core.management.base import BaseCommand
 
 from dform.models import Survey, AnswerGroup
-from dform.fields import (Text, MultiText, Dropdown, Radio, Checkboxes,
+from dform.fields import (Text, MultiText, Email, Dropdown, Radio, Checkboxes,
     Rating, Integer, Float)
 
 # =============================================================================
@@ -33,9 +33,11 @@ colours = [ 'Pink', 'LightPink', 'HotPink', 'DeepPink', 'PaleVioletRed',
 class Command(BaseCommand):
     def handle(self, *args, **options):
         survey = Survey.factory(name='Sample Survey',
-            success_redirect='http://localhost/admin/')
+            success_redirect='http://localhost:8000/admin/')
         survey.add_question(Text, 'Single line text question')
         survey.add_question(MultiText, 'Multiline question', required=True)
+        survey.add_question(Email, 'Email address')
+
         survey.add_question(Dropdown, 'Favourite fruit', 
             field_parms=OrderedDict([('a','Apple'), ('b','Banana'), 
                 ('k','Kiwi')]))

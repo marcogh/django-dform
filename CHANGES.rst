@@ -5,6 +5,7 @@
 * implement submit and edit call-back hooks
 * add Google reCAPTCHA capabilities
 * added views for getting latest survey
+* added Email field
 
 0.6.1
 =====

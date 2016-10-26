@@ -107,6 +107,11 @@ class MultiText(Field, TextStorage):
     django_widget = widgets.Textarea
 
 
+class Email(Field, TextStorage):
+    field_key = 'em'
+    django_field = fields.EmailField
+
+
 class Dropdown(ChoiceField, ChoicesStorage):
     field_key = 'dr'
     django_field = fields.ChoiceField
