@@ -186,11 +186,63 @@ If none of these are set for a given survey version an :class:`.AttributeError`
 is raised.
 
 
+Survey Answered Hook
+====================
+
+Sometimes the effort to `Role Your Own Views`_ or 
+`Wrapping Survey Submission Views`_ is just overkill, but you want to run some
+code when a submission happens.  There are two hooks you can use to help you
+do this: ``DFORM_SUBMIT_HOOK`` and ``DFORM_EDIT_HOOK``, the first is called if
+a survey is submitted the first time, the second if a survey with answers is
+submitted again.  Both are declared in your settings file and are set to a
+string dot notation of a callable function.  The function must take a single
+parameter: the :class:`.SurveyForm` that was just saved.  
+
+**settings.py**
+
+.. code-block:: python
+
+    DFORM_SUBMIT_HOOK = 'foo.submit'
+
+
+**foo.py**
+
+.. code-block:: python
+
+    from dform import Answer
+
+    def foo(form):
+        print('Survey named "%s" was submitted' %
+            form.survey_version.survey.name)
+
+        num = Answer.objects.filter(answer_group=form.answer_group).count()
+        print('It had %d answers' % num)
+
+
+Google reCAPTCHA
+================
+
+DForm supports the use of Google's `reCAPTCHA 
+<https://www.google.com/recaptcha/>`_  to help prevent robot submissions.  Two
+things need to be done, first you must define your key in settings:
+
+**settings.py**
+
+.. code-block:: python
+
+        DFORM_RECAPTCHA_KEY = 'asdf'
+
+
+Second, for each :class:`.Survey` object you need to turn it on by setting
+``use_recaptcha`` to ``True``.  This can be done in the admin or through the
+Survey Edit screen.
+
+
 Using DForm in IFRAMEs
 **********************
 
-DForm includes the excellent library ``pym.js``
-(http://blog.apps.npr.org/pym.js/) to deal with the issues caused
+DForm includes the excellent library `pym.js
+<http://blog.apps.npr.org/pym.js/>`_ to deal with the issues caused
 by responsive content in IFRAMEs.  There are two URLs for each of the survey
 and survey-with-answers calls that add the extra Javascript necessary to get
 responsive behaviour inside an IFRAME tag.

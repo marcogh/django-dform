@@ -52,6 +52,7 @@ class Survey(TimeTrackModel):
     name = models.CharField(max_length=50)
     token = models.CharField(max_length=40)
     success_redirect = models.TextField()
+    use_recaptcha = models.BooleanField(default=False)
 
     def __str__(self):
         return 'Survey(id=%s %s)' % (self.id, self.name)
@@ -95,6 +96,10 @@ class Survey(TimeTrackModel):
     def latest_version(self):
         return SurveyVersion.objects.filter(survey=self).order_by(
             '-version_num')[0]
+
+    @property
+    def recaptcha_key(self):
+        return getattr(settings, 'DFORM_RECAPTCHA_KEY')
 
     # ---------
     # Methods on Latest Version
@@ -361,6 +366,7 @@ class SurveyVersion(TimeTrackModel):
             {
                 'name':survey_name,
                 'redriect_url':redirect_url,
+                'recaptcha':use_recaptcha,
                 'questions':[
                     {
                         'id':question_id,
@@ -396,6 +402,7 @@ class SurveyVersion(TimeTrackModel):
         data = {
             'name':self.survey.name,
             'redirect_url':self.survey.success_redirect,
+            'recaptcha':self.survey.use_recaptcha,
             'questions':questions,
         }
 
@@ -424,6 +431,7 @@ class SurveyVersion(TimeTrackModel):
         errors = {}
         name = data.get('name', '').strip()
         url = data.get('redirect_url', '').strip()
+        self.survey.use_recaptcha = data.get('recaptcha', False)
 
         if not name:
             errors['name'] = 'name cannot be blank'

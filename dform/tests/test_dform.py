@@ -2,7 +2,7 @@ import json, re
 from collections import OrderedDict
 from django.core.exceptions import ValidationError
 from django.core.urlresolvers import reverse, NoReverseMatch
-from django.test import TestCase
+from django.test import TestCase, override_settings
 from mock import patch
 
 from awl.utils import refetch
@@ -23,13 +23,21 @@ from dform.forms import SurveyForm
 #    print(json.dumps(data, sort_keys=True, indent=4, separators=(',', ': ')))
 
 RE_PYM = re.compile('pym\.js')
-
-class GotHere(Exception):
-    pass
-
+call_back_flag = ''
 
 def perm_hook(name, *args, **kwargs):
-    raise GotHere()
+    global call_back_flag
+    call_back_flag = 'perm_hook'
+
+
+def submit_hook(form):
+    global call_back_flag
+    call_back_flag = 'submit_hook'
+
+
+def edit_hook(form):
+    global call_back_flag
+    call_back_flag = 'edit_hook'
 
 
 def create_survey():
@@ -315,6 +323,25 @@ class SurveyTests(TestCase):
 
             version.success_redirect = '/three/'
             self.assertEqual('/three/', version.on_success())
+
+    def test_recaptcha(self):
+        survey = Survey.factory(name='test')
+        url = '/dform/survey/%s/%s/' % (survey.latest_version.id, survey.token)
+
+        with self.settings(DFORM_RECAPTCHA_KEY='this_is_a_key'):
+            # make sure the recaptcha pieces didn't show up
+            response = self.client.get(url)
+            content = response.content.decode('utf-8')
+            self.assertNotIn('recaptcha', content)
+
+            # test again with recaptcha enabled
+            survey.use_recaptcha = True
+            survey.save()
+            response = self.client.get(url)
+            content = response.content.decode('utf-8')
+            self.assertIn('recaptcha/api.js', content)
+            self.assertIn('g-recaptcha', content)
+            self.assertIn('this_is_a_key', content)
 
 
 def fake_reverse(name, args):
@@ -691,6 +718,7 @@ class SurveyAdminViewTests(TestCase, AdminToolsMixin):
         # -- create a new survey
         expected = {
             'name':'New Survey',
+            'recaptcha':False,
             'redirect_url':'http://localhost/',
             'questions':[{
                 'id':0,
@@ -824,7 +852,7 @@ class SurveyViewTests(TestCase):
         self.assertTemplateUsed(response, 'dform/survey.html')
 
     #---- Survey Views
-    def _survey_view(self, url_base, expect_pym):
+    def _survey_view(self, url_base, expect_pym, use_hooks):
         survey, fields = self._data_gen()
         expected = list(zip(fields.values(), ['mt', 'tx', 'a', 'c', 'e', 2, 42, 
             13.69]))
@@ -847,7 +875,14 @@ class SurveyViewTests(TestCase):
             key = 'q_%s' % question.id
             data[key] = value
 
-        response = self.client.post(url, data)
+        global call_back_flag
+        if use_hooks:
+            call_back_flag = ''
+            response = self.client.post(url, data)
+            self.assertEqual('submit_hook', call_back_flag)
+        else:
+            response = self.client.post(url, data)
+
         self.assertEqual(302, response.status_code)
         self.assertIn(survey.success_redirect, response._headers['location'][1])
 
@@ -861,36 +896,77 @@ class SurveyViewTests(TestCase):
             response = self.client.get(url)
             self.assertEqual('/foo/', response.context['submit_action'])
 
+    @override_settings(
+        DFORM_SUBMIT_HOOK='dform.tests.test_dform.submit_hook',
+        DFORM_EDIT_HOOK='dform.tests.test_dform.edit_hook')
     def test_survey_view(self):
         url_base = '/dform/survey/%s/%s/'
-        self._survey_view(url_base, False)
+        self._survey_view(url_base, False, True)
 
     def test_embedded_survey_view(self):
         url_base = '/dform/embedded_survey/%s/%s/'
-        self._survey_view(url_base, True)
+        self._survey_view(url_base, True, False)
+
+    def test_latest_views(self):
+        # make sure that the "_latest" versions of views return the right
+        # content
+        survey, _ = create_survey()
+        url = '/dform/survey_latest/%s/%s/' % (survey.id, survey.token)
+
+        action_url = reverse('dform-survey', args=(survey.latest_version.id, 
+            survey.token))
+
+        expected_submit = 'action="%s"' % action_url
+
+        response = self.client.get(url)
+        self.assertEqual(200, response.status_code)
+        self.assertEqual('survey', response.context['title'])
+        self.assertTemplateUsed(response, 'dform/survey.html')
+        self.assertIn(expected_submit, response.content.decode('utf-8'))
+
+        # do it again for embedded
+        url = '/dform/embedded_survey_latest/%s/%s/' % (survey.id, survey.token)
+
+        action_url = reverse('dform-embedded-survey', args=(
+            survey.latest_version.id, survey.token))
+
+        expected_submit = 'action="%s"' % action_url
+
+        response = self.client.get(url)
+        self.assertEqual(200, response.status_code)
+        self.assertEqual('survey', response.context['title'])
+        self.assertTemplateUsed(response, 'dform/survey.html')
+        self.assertIn(expected_submit, response.content.decode('utf-8'))
+
 
     def test_permission_hooks(self):
+        global call_back_flag
         hook = 'dform.tests.test_dform.perm_hook'
 
         with self.settings(DFORM_PERMISSION_HOOK=hook):
-            with self.assertRaises(GotHere):
-                self.client.post('/dform/survey/1/abc/')
+            call_back_flag = ''
+            self.client.post('/dform/survey/1/abc/')
+            self.assertEqual(call_back_flag, 'perm_hook')
 
-            with self.assertRaises(GotHere):
-                self.client.post('/dform/embedded_survey/1/abc/')
+            call_back_flag = ''
+            self.client.post('/dform/embedded_survey/1/abc/')
+            self.assertEqual(call_back_flag, 'perm_hook')
 
-            with self.assertRaises(GotHere):
-                self.client.post('/dform/sample_survey/1/')
+            call_back_flag = ''
+            self.client.post('/dform/sample_survey/1/')
+            self.assertEqual(call_back_flag, 'perm_hook')
 
-            with self.assertRaises(GotHere):
-                self.client.post('/dform/survey_with_answers/1/abc/2/abc/')
+            call_back_flag = ''
+            self.client.post('/dform/survey_with_answers/1/abc/2/abc/')
+            self.assertEqual(call_back_flag, 'perm_hook')
 
-            with self.assertRaises(GotHere):
-                self.client.post(
-                    '/dform/embedded_survey_with_answers/1/abc/2/abc/')
+            call_back_flag = ''
+            self.client.post('/dform/embedded_survey_with_answers/1/abc/2/abc/')
+            self.assertEqual(call_back_flag, 'perm_hook')
 
     #---- Survey Answer Views
-    def _survey_with_answers(self, url_base, expect_pym):
+    def _survey_with_answers(self, url_base, expect_pym, use_hooks):
+        global call_back_flag
         survey, fields = self._data_gen()
         questions = list(fields.values())
         expected = list(zip(questions, ['mt', 'tx', 'a', 'c', 'e,f', 2, 42, 
@@ -929,7 +1005,13 @@ class SurveyViewTests(TestCase):
             key = 'q_%s' % question.id
             data[key] = value
 
-        response = self.client.post(url, data)
+        if use_hooks:
+            call_back_flag = ''
+            response = self.client.post(url, data)
+            self.assertEqual(call_back_flag, 'edit_hook')
+        else:
+            response = self.client.post(url, data)
+
         self.assertEqual(302, response.status_code)
         self.assertIn(survey.success_redirect, response._headers['location'][1])
 
@@ -957,13 +1039,16 @@ class SurveyViewTests(TestCase):
             response = self.client.get(url)
             self.assertEqual('/foo/', response.context['submit_action'])
 
+    @override_settings(
+        DFORM_SUBMIT_HOOK='dform.tests.test_dform.submit_hook',
+        DFORM_EDIT_HOOK='dform.tests.test_dform.edit_hook')
     def test_survey_with_answers(self):
         url_base = '/dform/survey_with_answers/%s/%s/%s/%s/'
-        self._survey_with_answers(url_base, False)
+        self._survey_with_answers(url_base, False, True)
 
     def test_embedded_survey_with_answers(self):
         url_base = '/dform/embedded_survey_with_answers/%s/%s/%s/%s/'
-        self._survey_with_answers(url_base, True)
+        self._survey_with_answers(url_base, True, False)
 
 
 class FormTest(TestCase):

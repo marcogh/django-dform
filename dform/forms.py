@@ -9,6 +9,14 @@ from .models import Answer, AnswerGroup, Question
 # ============================================================================
 
 class SurveyForm(forms.Form):
+    """Used to marshal survey answers.  Members that may be useful to access
+    are:
+
+    :param survey_version: :class:`.SurveyVersion` object that was used to
+        create this form
+    :param answer_group: :class:`.AnswerGroup` object that references the
+        stored questions and answers for the form
+    """
     def __init__(self, *args, **kwargs):
         self.survey_version = kwargs.pop('survey_version')
         self.answer_group = kwargs.pop('answer_group', None)

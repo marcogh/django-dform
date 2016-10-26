@@ -7,8 +7,7 @@ from django.contrib.admin.views.decorators import staff_member_required
 from django.contrib.staticfiles.storage import staticfiles_storage
 from django.core.exceptions import ValidationError
 from django.core.urlresolvers import reverse
-from django.http import (HttpResponse, JsonResponse, HttpResponseRedirect, 
-    Http404)
+from django.http import JsonResponse, HttpResponseRedirect, Http404
 from django.shortcuts import get_object_or_404, render
 from django.template import Context, Template
 
@@ -112,6 +111,12 @@ def survey_links(request, survey_version_id):
     embedded_survey_url = request.build_absolute_uri(
         reverse('dform-embedded-survey', args=(version.id, 
         version.survey.token)))
+    survey_latest_url = request.build_absolute_uri(
+        reverse('dform-survey-latest', args=(version.survey.id, 
+        version.survey.token)))
+    embedded_survey_latest_url = request.build_absolute_uri(
+        reverse('dform-embedded-survey-latest', args=(version.survey.id, 
+        version.survey.token)))
     pym_url = request.build_absolute_uri(
         staticfiles_storage.url('dform/js/pym.min.js'))
     
@@ -119,6 +124,8 @@ def survey_links(request, survey_version_id):
         'title':'Links for: %s' % version.survey.name,
         'survey_url':survey_url,
         'embedded_survey_url':embedded_survey_url,
+        'survey_latest_url':survey_latest_url,
+        'embedded_survey_latest_url':embedded_survey_latest_url,
         'pym_url':pym_url,
         'version':version,
     }
@@ -185,6 +192,12 @@ def _survey_view(request, survey_version_id, token, is_embedded):
         form = SurveyForm(request.POST, survey_version=version)
         if form.is_valid():
             form.save()
+
+            name = getattr(settings, 'DFORM_SUBMIT_HOOK', '')
+            if name:
+                fn = dynamic_load(name)
+                fn(form)
+
             return HttpResponseRedirect(version.on_success())
     else:
         form = SurveyForm(survey_version=version)
@@ -212,7 +225,7 @@ def _survey_view(request, survey_version_id, token, is_embedded):
 
 @permission_hook
 def survey(request, survey_version_id, token):
-    """View for submitting the answers to a survey.
+    """View for submitting the answers to a survey version.
 
     URL name reference for this view: ``dform-survey``
 
@@ -222,13 +235,36 @@ def survey(request, survey_version_id, token):
 
 @permission_hook
 def embedded_survey(request, survey_version_id, token):
-    """View for submitting the answers to a survey with additional Javascript
-    handling for being embedded in an iframe.
+    """View for submitting the answers to a survey version with additional
+    Javascript handling for being embedded in an iframe.
 
     URL name reference for this view: ``dform-survey``
 
     """
     return _survey_view(request, survey_version_id, token, True)
+
+
+@permission_hook
+def survey_latest(request, survey_id, token):
+    """View for submitting the answers to the latest version of a survey.
+
+    URL name reference for this view: ``dform-survey``
+
+    """
+    survey = get_object_or_404(Survey, id=survey_id, token=token)
+    return _survey_view(request, survey.latest_version.id, token, False)
+
+
+@permission_hook
+def embedded_survey_latest(request, survey_id, token):
+    """View for submitting the answers to the latest version of a survey with 
+    additional Javascript handling for being embedded in an iframe.
+
+    URL name reference for this view: ``dform-survey``
+
+    """
+    survey = get_object_or_404(Survey, id=survey_id, token=token)
+    return _survey_view(request, survey.latest_version.id, token, True)
 
 #------------------
 
@@ -247,6 +283,12 @@ def _survey_with_answers_view(request, survey_version_id, survey_token,
             answer_group=answer_group)
         if form.is_valid():
             form.save()
+
+            name = getattr(settings, 'DFORM_EDIT_HOOK', '')
+            if name:
+                fn = dynamic_load(name)
+                fn(form)
+
             return HttpResponseRedirect(version.on_success())
     else:
         form = SurveyForm(survey_version=version, answer_group=answer_group)

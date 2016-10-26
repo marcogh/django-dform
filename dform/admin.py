@@ -41,8 +41,8 @@ def _questions_link(version, show_reorder=True):
 
 @admin.register(Survey)
 class SurveyAdmin(admin.ModelAdmin):
-    list_display = ('id', 'name', 'version_num', 'show_actions',
-        'show_versions', 'show_questions', 'show_answers')
+    list_display = ('id', 'name', 'version_num', 'use_recaptcha', 
+        'show_actions', 'show_versions', 'show_questions', 'show_answers')
 
     def version_num(self, obj):
         return '%s' % obj.latest_version.version_num

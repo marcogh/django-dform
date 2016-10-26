@@ -9,6 +9,11 @@ urlpatterns = [
     url(r'^embedded_survey/(\d+)/(\w+)/$', views.embedded_survey, 
       name='dform-embedded-survey'),
 
+    url(r'^survey_latest/(\d+)/(\w+)/$', views.survey_latest, 
+        name='dform-survey-latest'),
+    url(r'^embedded_survey_latest/(\d+)/(\w+)/$', views.embedded_survey_latest, 
+      name='dform-embedded-survey-latest'),
+
     url(r'^survey_with_answers/(\d+)/(\w+)/(\d+)/(\w+)/$', 
         views.survey_with_answers, name='dform-survey-with-answers'),
     url(r'^embedded_survey_with_answers/(\d+)/(\w+)/(\d+)/(\w+)/$', 
