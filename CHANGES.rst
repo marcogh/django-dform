@@ -1,12 +1,16 @@
-0.7.0
+0.8.0
 =====
 
-* changed "Add Survey" button in django admin to use Survey Editor
 * implement submit and edit call-back hooks
 * add Google reCAPTCHA capabilities
 * added views for getting latest survey
 * added Email field
 * added IP Address tracking on the survey submit
+
+0.7.0
+=====
+
+* changed "Add Survey" button in django admin to use Survey Editor
 
 0.6.1
 =====
