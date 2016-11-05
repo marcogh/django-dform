@@ -45,6 +45,9 @@ body {
                 <li>
                   <a href="#" class="add-q" data-field="mt">Multi-line Text</a>
                 </li>
+                <li>
+                  <a href="#" class="add-q" data-field="em">E-mail</a>
+                </li>
                 <li><a href="#" class="add-q" data-field="dr">Dropdown</a></li>
                 <li>
                   <a href="#" class="add-q" data-field="rd">Radiobuttons</a>
@@ -293,6 +296,9 @@ function add_question(q_id, q_type, q_text, required, parms) {
       break;
     case 'mt':
       html = question_body(q_id, q_type, 'Multiline', q_text, required);
+      break;
+    case 'em':
+      html = question_body(q_id, q_type, 'Email', q_text, required);
       break;
     case 'dr':
       html = question_body(q_id, q_type, 'Dropdown', q_text, required);

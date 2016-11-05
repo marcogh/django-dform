@@ -1,3 +1,8 @@
+0.8.1
+=====
+
+* fixed: Email field was missing from survey editor
+
 0.8.0
 =====
 
