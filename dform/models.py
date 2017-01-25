@@ -5,7 +5,7 @@ from django.conf import settings
 from django.contrib.contenttypes.fields import GenericForeignKey
 from django.contrib.contenttypes.models import ContentType
 from django.core.exceptions import ValidationError
-from django.core.validators import URLValidator
+# from django.core.validators import URLValidator
 from django.db import models, transaction
 from django.db.models.signals import post_save
 from django.dispatch import receiver
@@ -438,16 +438,17 @@ class SurveyVersion(TimeTrackModel):
         else:
             self.survey.name = name
 
-        if not url:
-            errors['redirect_url'] = 'redirect URL cannot be blank'
-        else:
-            validator = URLValidator(schemes=['http', 'https'])
-            try:
-                validator(url)
-                self.survey.success_redirect = url
-            except ValidationError:
-                errors['redirect_url'] = ('invalid URL; only fully qualified '
-                    'URLs are supported')
+        #if not url:
+        #    errors['redirect_url'] = 'redirect URL cannot be blank'
+        #else:
+        #    validator = URLValidator(schemes=['http', 'https'])
+        #    try:
+        #        validator(url)
+        #        self.survey.success_redirect = url
+        #    except ValidationError:
+        #        errors['redirect_url'] = ('invalid URL; only fully qualified '
+        #            'URLs are supported')
+        self.survey.success_redirect = '/'
 
         if errors:
             raise ValidationError('Survey Validation Failed', params=errors)
