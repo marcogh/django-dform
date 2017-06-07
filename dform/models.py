@@ -677,3 +677,10 @@ class Answer(TimeTrackModel):
             value = value[:12] + '...'
 
         return value
+
+    @property
+    def display_choice_value(self):
+        """Returns mapped value (with data from ``question.field_parms``) 
+        of ``choice`` field
+        """
+        return filter(lambda x: x[0] in self.value.split(','), self.question.field_choices())
